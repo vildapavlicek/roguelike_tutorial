@@ -1,22 +1,13 @@
 use crate::{
     components::{
-        requests::{MovementRequest, VisibilityChangeRequest},
-        Floor, FogOfWar, Impassable, Monster, Player, Position, Revealed, Viewshed, Visible, Wall,
+        requests::MovementRequest, FogOfWar, Impassable, Player, Position, Revealed, Viewshed,
+        Visible, Wall,
     },
-    consts::{FOW_ALPHA, PLAYER_Z, SPRITE_SIZE},
+    consts::FOW_ALPHA,
 };
-use bevy::{
-    asset::AssetServer,
-    input::ButtonInput,
-    log::{debug, trace},
-    prelude::{
-        default, run_once, Camera2d, Changed, Color, Commands, DetectChanges, Entity,
-        IntoSystemConfigs, KeyCode, Mut, Or, Plugin, Query, Ref, RemovedComponents, Res, ResMut,
-        Sprite, SpriteBundle, Startup, Transform, Update, Vec2, With, Without,
-    },
-    render::view::{visibility, Visibility},
-};
+use bevy::{asset::AssetServer, input::ButtonInput, prelude::*};
 
+/// This plugin encapsulates all the systems that manage player's behiavour
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
@@ -48,7 +39,8 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-pub(super) fn spawn_player(
+/// This system is responsible for spawning player
+fn spawn_player(
     mut cmd: Commands,
     spawn_point: Res<crate::resources::SpawnPoints>,
     asset_server: Res<AssetServer>,
@@ -65,7 +57,8 @@ pub(super) fn spawn_player(
     .insert(Viewshed::new(4));
 }
 
-pub(super) fn player_input(
+/// This system handles user's input controlling player
+pub fn player_input(
     mut cmd: Commands,
     mut player: Query<(Entity, &Position, &mut Sprite), With<Player>>,
     input: ResMut<ButtonInput<KeyCode>>,
@@ -108,10 +101,12 @@ pub(super) fn player_input(
     cmd.entity(player_ent).insert(MovementRequest { x, y });
 }
 
+/// This is our check method to see if player moved so we know when to run other systems
 fn player_moved(query: Query<Ref<Position>, With<Player>>) -> bool {
     query.single().is_changed()
 }
 
+/// Computes player's current field of vision
 fn compute_fov(
     mut player_pos: Query<(&Position, &mut Viewshed), With<Player>>,
     walls: Query<&Position, With<Wall>>,
@@ -124,6 +119,7 @@ fn compute_fov(
     .compute(*p_position, viewshed.visible_range as i32);
 }
 
+/// Sets and removes [Visible] component from entities based on player's current [Viewshed]
 fn update_visibility(
     mut cmd: Commands,
     visible: Query<(Entity, &Position), With<Visible>>,
@@ -170,9 +166,20 @@ fn set_visible(mut visibility: Mut<Visibility>) {
     *visibility = Visibility::Visible;
 }
 
+/// With this function we want achiev 3 things:
+/// 1. entities that support Fog of War, set alpha of the sprite to [FOW_ALPHA] (mainly walls and floors that player has seen but are not in current FoV)
+/// 2. entities that do not support Fog of War should be set to [Visibility::Hidden]
+/// 3. entitties that has been seen before and now enter player's FoV should have alpha set to 1
+///
+/// # Arguments
+/// * removed - list of entities that we have removed [Visible] from, those are no longer in player's FoV
+/// * `fow_sprites` - sprites that are marked with [FogOfWar], those have alpha set to 25% when not in player's FoV
+/// * `hide_visibility` - entities that should be hidden when not in player's FoV
+/// * `visited_sprites` - sprites that player has seen before, are covered by Fog of War and are now again in player's FoV -> set alpha to 100%
 fn apply_fow(
     mut removed: RemovedComponents<Visible>,
-    mut sprites: Query<&mut Sprite, Without<Visible>>,
+    mut fow_sprites: Query<&mut Sprite, (Without<Visible>, With<FogOfWar>)>,
+    mut hide_visibility: Query<&mut Visibility, (Without<Visible>, Without<FogOfWar>)>,
     mut visited_sprites: Query<&mut Sprite, (With<Visible>, With<Revealed>)>,
 ) {
     fn set_fow_alpha(mut sprite: Mut<Sprite>) {
@@ -187,9 +194,14 @@ fn apply_fow(
         }
     }
 
-    // sprites that have removed component [Visible] should be hidden, ie set alpha to 25%
+    fn set_hidden(mut visibility: Mut<Visibility>) {
+        *visibility = Visibility::Hidden;
+    }
+
+    //
     removed.read().for_each(|entity| {
-        sprites.get_mut(entity).map(set_fow_alpha).ok();
+        fow_sprites.get_mut(entity).map(set_fow_alpha).ok();
+        hide_visibility.get_mut(entity).map(set_hidden).ok();
     });
 
     // sprites that are hidden, but now are in FoV

@@ -9,6 +9,7 @@ use bevy::{
         default, run_once, AssetServer, Commands, IntoSystemConfigs, Plugin, Res, SpriteBundle,
     },
 };
+use rand::Rng;
 
 pub(super) struct MonsterPlugin;
 
@@ -28,10 +29,15 @@ pub(super) fn spawn_monsters(
 ) {
     trace!("spawning monsters");
     let goblin = asset_server.load("goblin.png");
+    let orc = asset_server.load("orc.png");
 
     spawn_points.monsters.iter().for_each(|spawn_point| {
+        let texture = (rand::thread_rng().gen_range(0f32..1f32) > 0.75f32)
+            .then(|| orc.clone())
+            .unwrap_or(goblin.clone());
         cmd.spawn(SpriteBundle {
-            texture: goblin.clone(),
+            visibility: bevy::render::view::Visibility::Hidden,
+            texture,
             ..default()
         })
         .insert(*spawn_point)
