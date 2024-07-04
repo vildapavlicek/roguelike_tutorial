@@ -70,7 +70,7 @@ fn sync_camera_with_player(
     camera_pos.single_mut().translation = player_pos.single().translation
 }
 
-fn apply_fow(mut query: Query<&mut Sprite, (With<Revealed>, Without<InFov>)>) {
+fn apply_fow(mut query: Query<&mut Sprite, (With<Revealed>, Without<InFov>, Without<Player>)>) {
     fn apply_alpha(mut sprite: Mut<Sprite>) {
         if sprite.color.a() >= 1f32 {
             sprite.color.set_a(FOW_ALPHA);
