@@ -1,5 +1,8 @@
 use crate::consts::{PLAYER_Z, SPRITE_SIZE};
-use bevy::prelude::{Component, Vec3};
+use bevy::{
+    prelude::{Component, Vec3},
+    utils::hashbrown::HashSet,
+};
 use std::{
     hash::Hash,
     ops::{Add, AddAssign},
@@ -91,11 +94,29 @@ pub struct Floor;
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Impassable;
 
-#[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
-pub struct ViewDistance(pub u8);
+#[derive(Debug, PartialEq, Eq, Component, Clone)]
+pub struct Viewshed {
+    pub visible_range: u8,
+    pub visible_tiles: HashSet<Position>,
+}
+
+impl Viewshed {
+    pub fn new(visible_range: u8) -> Self {
+        Self {
+            visible_range,
+            visible_tiles: HashSet::new(),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
-pub struct InFov;
+pub struct Visible;
 
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Revealed;
+
+#[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
+pub struct Monster;
+
+#[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
+pub struct FogOfWar;

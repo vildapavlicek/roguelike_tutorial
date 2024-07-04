@@ -1,19 +1,18 @@
 use crate::{
-    algorithms::fov::LevelPoint,
     components::{
         requests::{MovementRequest, VisibilityChangeRequest},
-        Floor, Impassable, InFov, Player, Position, Revealed, ViewDistance, Wall,
+        Floor, FogOfWar, Impassable, Monster, Player, Position, Revealed, Viewshed, Visible, Wall,
     },
-    consts::{PLAYER_Z, SPRITE_SIZE},
+    consts::{FOW_ALPHA, PLAYER_Z, SPRITE_SIZE},
 };
 use bevy::{
     asset::AssetServer,
     input::ButtonInput,
     log::{debug, trace},
     prelude::{
-        default, run_once, Changed, Color, Commands, DetectChanges, Entity, IntoSystemConfigs,
-        KeyCode, Mut, Or, Plugin, Query, Ref, Res, ResMut, Sprite, SpriteBundle, Startup, Update,
-        Vec2, With, Without,
+        default, run_once, Camera2d, Changed, Color, Commands, DetectChanges, Entity,
+        IntoSystemConfigs, KeyCode, Mut, Or, Plugin, Query, Ref, RemovedComponents, Res, ResMut,
+        Sprite, SpriteBundle, Startup, Transform, Update, Vec2, With, Without,
     },
     render::view::{visibility, Visibility},
 };
@@ -39,8 +38,8 @@ impl Plugin for PlayerPlugin {
                 player_input,
                 super::process_movement,
                 super::sync_position,
-                super::sync_camera_with_player,
-                (clear_fov, compute_fov, update_visibility)
+                sync_camera_with_player,
+                (compute_fov, update_visibility, apply_fow)
                     .chain()
                     .run_if(player_moved),
             )
@@ -51,20 +50,19 @@ impl Plugin for PlayerPlugin {
 
 pub(super) fn spawn_player(
     mut cmd: Commands,
-    spawn_point: Res<crate::resources::PlayerSpawnPoint>,
+    spawn_point: Res<crate::resources::SpawnPoints>,
     asset_server: Res<AssetServer>,
 ) {
     let player_sprite = asset_server.load("hooded.png");
 
-    let spawn_point = spawn_point.inner();
     cmd.spawn(SpriteBundle {
         texture: player_sprite,
         ..default()
     })
-    .insert(spawn_point)
+    .insert(spawn_point.player)
     // .insert(Position::new(0, 0, PLAYER_Z as i32))
     .insert(crate::components::Player)
-    .insert(ViewDistance(4));
+    .insert(Viewshed::new(4));
 }
 
 pub(super) fn player_input(
@@ -114,58 +112,99 @@ fn player_moved(query: Query<Ref<Position>, With<Player>>) -> bool {
     query.single().is_changed()
 }
 
-fn clear_fov(mut cmd: Commands, query: Query<Entity, With<InFov>>) {
-    query.iter().for_each(|e| {
-        cmd.entity(e).remove::<InFov>();
-    });
-}
-
 fn compute_fov(
-    mut cmd: Commands,
-    player_pos: Query<(Ref<Position>, &ViewDistance), With<Player>>,
+    mut player_pos: Query<(&Position, &mut Viewshed), With<Player>>,
     walls: Query<&Position, With<Wall>>,
-    mut sprites: Query<(Entity, &Position, Option<&Revealed>)>,
 ) {
-    if !player_pos.single().0.is_changed() {
-        return;
-    }
-
-    let (player_pos, view_distance) = player_pos.single();
-    let visible = crate::algorithms::my_fov::MyVisibility::new(
+    let (p_position, mut viewshed) = player_pos.single_mut();
+    viewshed.visible_tiles = crate::algorithms::my_fov::MyVisibility::new(
         |x, y| walls.iter().any(|pos| pos.x == x && pos.y == y),
         |x, y| euclidean_distance(0, 0, x, y),
     )
-    .compute(*player_pos, view_distance.0 as i32);
-
-    visible.into_iter().for_each(|pos| {
-        match sprites.iter_mut().find(|(_, s_pos, _)| **s_pos == pos) {
-            Some((entity, _, None)) => {
-                cmd.entity(entity).insert(InFov).insert(Revealed);
-            }
-            Some((entity, _, Some(_))) => {
-                cmd.entity(entity).insert(InFov);
-            }
-            None => (),
-        };
-    });
+    .compute(*p_position, viewshed.visible_range as i32);
 }
 
-fn update_visibility(mut visibility: Query<(&mut Visibility, &mut Sprite), With<InFov>>) {
-    fn update_visibility((mut visibility, mut sprite): (Mut<Visibility>, Mut<Sprite>)) {
-        sprite.color.set_a(1f32);
-
-        if matches!(*visibility, Visibility::Visible) {
-            return;
+fn update_visibility(
+    mut cmd: Commands,
+    visible: Query<(Entity, &Position), With<Visible>>,
+    mut visibility: Query<
+        (Entity, &mut Visibility, &Position, Option<&Revealed>),
+        Without<Visible>,
+    >,
+    player_visible_tiles: Query<&Viewshed, With<Player>>,
+) {
+    let viewshed = player_visible_tiles.single();
+    visible.iter().for_each(|(entity, position)| {
+        if !viewshed.visible_tiles.contains(position) {
+            cmd.entity(entity).remove::<Visible>();
         }
+    });
 
-        *visibility = Visibility::Visible;
+    visibility
+        .iter_mut()
+        .filter_map(|(entity, visibility, pos, revealed)| {
+            viewshed
+                .visible_tiles
+                .contains(pos)
+                .then(|| (entity, visibility, revealed))
+        })
+        .for_each(|(entity, visibility, revealed)| {
+            match revealed {
+                Some(_) => {
+                    cmd.entity(entity).insert(Visible);
+                }
+                None => {
+                    cmd.entity(entity).insert(Visible).insert(Revealed);
+                }
+            }
+
+            set_visible(visibility);
+        });
+}
+
+fn set_visible(mut visibility: Mut<Visibility>) {
+    if matches!(*visibility, Visibility::Visible) {
+        return;
     }
 
-    visibility.iter_mut().for_each(update_visibility);
+    *visibility = Visibility::Visible;
+}
+
+fn apply_fow(
+    mut removed: RemovedComponents<Visible>,
+    mut sprites: Query<&mut Sprite, Without<Visible>>,
+    mut visited_sprites: Query<&mut Sprite, (With<Visible>, With<Revealed>)>,
+) {
+    fn set_fow_alpha(mut sprite: Mut<Sprite>) {
+        if sprite.color.a() >= 1f32 {
+            sprite.color.set_a(FOW_ALPHA);
+        }
+    }
+
+    fn set_opaque(mut sprite: Mut<Sprite>) {
+        if sprite.color.a() < 1f32 {
+            sprite.color.set_a(1f32);
+        }
+    }
+
+    // sprites that have removed component [Visible] should be hidden, ie set alpha to 25%
+    removed.read().for_each(|entity| {
+        sprites.get_mut(entity).map(set_fow_alpha).ok();
+    });
+
+    // sprites that are hidden, but now are in FoV
+    visited_sprites.iter_mut().for_each(set_opaque)
 }
 
 fn euclidean_distance(p1_x: i32, p1_y: i32, p2_x: i32, p2_y: i32) -> i32 {
     let dx = (p1_x - p2_x) as f64;
     let dy = (p1_y - p2_y) as f64;
     ((dx * dx + dy * dy).sqrt()) as i32
+}
+
+fn sync_camera_with_player(
+    player_pos: Query<&Transform, With<Player>>,
+    mut camera_pos: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
+) {
+    camera_pos.single_mut().translation = player_pos.single().translation
 }

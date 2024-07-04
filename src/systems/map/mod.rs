@@ -1,8 +1,9 @@
 mod rect;
 
 use crate::{
-    components::{Floor, Impassable, Position, Wall},
-    consts::{FLOOR_Z, SPRITE_SIZE, WALL_Z},
+    components::{Floor, FogOfWar, Impassable, Position, Wall},
+    consts::{FLOOR_Z, MONSTER_Z, PLAYER_Z, SPRITE_SIZE, WALL_Z},
+    resources::SpawnPoints,
 };
 use bevy::{
     asset::AssetServer,
@@ -112,7 +113,7 @@ impl Map {
         map
     }
 
-    // TODO: doesn't work at the moment, it needs to be fixed
+    /// check whether the wall is adjacent to a floor. We need only walls around floors, the rest is not needed, so this can help us to filter them out
     fn next_to_floor(&self, x: usize, y: usize) -> bool {
         let index = self.xy_idx(x, y);
 
@@ -190,12 +191,10 @@ impl Map {
     }
 }
 
-pub(super) fn spawn_map(mut cmd: Commands, asset_server: Res<AssetServer>) {
+pub(super) fn spawn(mut cmd: Commands, asset_server: Res<AssetServer>) {
     let floor = asset_server.load("cave_floor_dark.png");
     let wall = asset_server.load("wall.png");
 
-    // let mut x = 0;
-    // let mut y = 0;
     trace!("generating new map");
     let map = Map::new_map_rooms_and_corridors();
 
@@ -214,9 +213,13 @@ pub(super) fn spawn_map(mut cmd: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .insert(Position::new(x as i32, y as i32, FLOOR_Z as i32))
-                .insert(Floor);
+                .insert(Floor)
+                .insert(FogOfWar);
             }
             TileType::Wall => {
+                if !map.next_to_floor(x, y) {
+                    continue;
+                }
                 cmd.spawn(SpriteBundle {
                     texture: wall.clone(),
                     visibility: Visibility::Hidden,
@@ -229,22 +232,27 @@ pub(super) fn spawn_map(mut cmd: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Position::new(x as i32, y as i32, WALL_Z as i32))
                 .insert(Wall)
-                .insert(Impassable);
+                .insert(Impassable)
+                .insert(FogOfWar);
             }
         };
-
-        // x += 1;
-        // if x > 79 {
-        //     x = 0;
-        //     y += 1;
-        // };
     }
 
-    let room_index = rand::thread_rng().gen_range(0..map.rooms.len());
-    let (x, y) = map
-        .rooms
-        .get(room_index)
-        .map(Rect::center)
-        .expect("No rooms to spawn player in");
-    cmd.insert_resource(crate::resources::PlayerSpawnPoint::new(x as i32, y as i32));
+    let spawn_points = SpawnPoints {
+        player: map
+            .rooms
+            .get(0)
+            .map(Rect::center)
+            .map(|(x, y)| Position::new(x as i32, y as i32, PLAYER_Z as i32))
+            .expect("No rooms to spawn player in"),
+        monsters: map
+            .rooms
+            .iter()
+            .skip(1)
+            .map(Rect::center)
+            .map(|(x, y)| Position::new(x as i32, y as i32, MONSTER_Z as i32))
+            .collect(),
+    };
+
+    cmd.insert_resource(spawn_points);
 }
