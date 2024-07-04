@@ -112,7 +112,7 @@ fn compute_fov(
     walls: Query<&Position, With<Wall>>,
 ) {
     let (p_position, mut viewshed) = player_pos.single_mut();
-    viewshed.visible_tiles = crate::algorithms::my_fov::MyVisibility::new(
+    viewshed.visible_tiles = crate::algorithms::fov::MyVisibility::new(
         |x, y| walls.iter().any(|pos| pos.x == x && pos.y == y),
         |x, y| euclidean_distance(0, 0, x, y),
     )
@@ -167,15 +167,15 @@ fn set_visible(mut visibility: Mut<Visibility>) {
 }
 
 /// With this function we want achiev 3 things:
-/// 1. entities that support Fog of War, set alpha of the sprite to [FOW_ALPHA] (mainly walls and floors that player has seen but are not in current FoV)
+/// 1. entities that support Fog of War, set alpha of the sprite to [FOW_ALPHA] (mainly walls and floors that player has seen but are not in current Field of View)
 /// 2. entities that do not support Fog of War should be set to [Visibility::Hidden]
-/// 3. entitties that has been seen before and now enter player's FoV should have alpha set to 1
+/// 3. entitties that has been seen before and now enter player's Field of View should have alpha set to 1
 ///
 /// # Arguments
-/// * removed - list of entities that we have removed [Visible] from, those are no longer in player's FoV
-/// * `fow_sprites` - sprites that are marked with [FogOfWar], those have alpha set to 25% when not in player's FoV
-/// * `hide_visibility` - entities that should be hidden when not in player's FoV
-/// * `visited_sprites` - sprites that player has seen before, are covered by Fog of War and are now again in player's FoV -> set alpha to 100%
+/// * removed - list of entities that we have removed [Visible] from, those are no longer in player's field of view
+/// * `fow_sprites` - sprites that are marked with [FogOfWar], those have alpha set to 25% when not in player's Field of View
+/// * `hide_visibility` - entities that should be hidden when not in player's Field of View
+/// * `visited_sprites` - sprites that player has seen before, are covered by Fog of War and are now again in player's Field of View -> set alpha to 100%
 fn apply_fow(
     mut removed: RemovedComponents<Visible>,
     mut fow_sprites: Query<&mut Sprite, (Without<Visible>, With<FogOfWar>)>,
@@ -204,7 +204,7 @@ fn apply_fow(
         hide_visibility.get_mut(entity).map(set_hidden).ok();
     });
 
-    // sprites that are hidden, but now are in FoV
+    // sprites that are hidden, but now are in Field of View
     visited_sprites.iter_mut().for_each(set_opaque)
 }
 
@@ -214,6 +214,8 @@ fn euclidean_distance(p1_x: i32, p1_y: i32, p2_x: i32, p2_y: i32) -> i32 {
     ((dx * dx + dy * dy).sqrt()) as i32
 }
 
+/// We want camera to follow player, making the player's sprite always to be in the center.
+/// This function sets camera's [Transform] to player's [Transform]
 fn sync_camera_with_player(
     player_pos: Query<&Transform, With<Player>>,
     mut camera_pos: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,

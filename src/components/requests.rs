@@ -2,7 +2,7 @@
 //!
 //!
 //!
-use bevy::prelude::{Component, Entity, Visibility};
+use bevy::prelude::Component;
 
 /// Component to request movement. The values indicate bych how much the entity should move by.
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Component)]
@@ -24,10 +24,4 @@ impl MovementRequest {
     pub fn left() -> Self {
         MovementRequest { x: -1, y: 0 }
     }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Component)]
-pub struct VisibilityChangeRequest {
-    pub entity: Entity,
-    pub new_visibility: Visibility,
 }

@@ -1,4 +1,4 @@
-use crate::consts::{PLAYER_Z, SPRITE_SIZE};
+use crate::consts::SPRITE_SIZE;
 use bevy::{
     prelude::{Component, Vec3},
     utils::hashbrown::HashSet,
@@ -82,21 +82,28 @@ impl Hash for Position {
     }
 }
 
+/// Marks entity that will be controlled by player
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Player;
 
+/// Marks entity as a wall, it blocks player from going through as well as blocks sight
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Wall;
 
+/// entity which is a floor that player can step on
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Floor;
 
+/// Not sure about this one, it should mark entities that cannot be walked through
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Impassable;
 
+/// Defines players field of view
 #[derive(Debug, PartialEq, Eq, Component, Clone)]
 pub struct Viewshed {
+    /// how far player can see
     pub visible_range: u8,
+    /// which positions are currently in player's field of view
     pub visible_tiles: HashSet<Position>,
 }
 
@@ -109,14 +116,18 @@ impl Viewshed {
     }
 }
 
+/// Marks entities which are currently inside player's field of view
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Visible;
 
+/// Entitties that entered into player's field of view at least once
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Revealed;
 
+/// Tag to mark entities that are monsters hostile to player
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Monster;
 
+/// Used to mark entities that will be hidden by Fog of War when not in player's field of view
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct FogOfWar;

@@ -22,7 +22,8 @@ impl Plugin for MonsterPlugin {
     }
 }
 
-pub(super) fn spawn_monsters(
+/// This is our monster spawner function, has to be ran after initial setup as we need the [SpawnPoints] resource
+pub fn spawn_monsters(
     mut cmd: Commands,
     asset_server: Res<AssetServer>,
     spawn_points: Res<SpawnPoints>,

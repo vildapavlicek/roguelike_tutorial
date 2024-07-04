@@ -7,17 +7,14 @@ use crate::{
 };
 use bevy::{
     asset::AssetServer,
-    log::{debug, trace},
-    prelude::{
-        default, Color, Commands, Res, Resource, Sprite, SpriteBundle, Transform, Vec2, Vec3,
-    },
+    log::trace,
+    prelude::{default, Commands, Res, Resource, SpriteBundle, Transform, Vec3},
     render::view::Visibility,
 };
 use rand::Rng;
 use rect::Rect;
 use std::{
     cmp::{max, min},
-    ops::Sub,
     usize,
 };
 
@@ -27,6 +24,7 @@ enum TileType {
     Floor,
 }
 
+/// We generate map using this struct and then spawn the map as entities in our ECS.
 #[derive(Debug, Clone, Resource)]
 pub struct Map {
     tiles: Vec<TileType>,
@@ -36,14 +34,17 @@ pub struct Map {
 }
 
 impl Map {
+    /// Converts x y coordinates into array's index
     pub fn xy_idx(&self, x: usize, y: usize) -> usize {
         ((y * self.width) + x) as usize
     }
 
+    /// Converts index to x y coordinates
     pub fn idx_xy(&self, idx: usize) -> (usize, usize) {
         (idx % self.width, idx / self.width)
     }
 
+    /// Applies a new room into map. That means marking given coordinates as a [TileType::Floor]
     fn apply_room_to_map(&mut self, room: &Rect) {
         for y in room.y1 + 1..=room.y2 {
             for x in room.x1 + 1..=room.x2 {
@@ -53,6 +54,7 @@ impl Map {
         }
     }
 
+    /// Generates tunel from x1 to x2. Used to connect rooms.
     fn apply_horizontal_tunnel(&mut self, x1: usize, x2: usize, y: usize) {
         for x in min(x1, x2)..=max(x1, x2) {
             let idx = self.xy_idx(x, y);
@@ -62,6 +64,7 @@ impl Map {
         }
     }
 
+    /// Generates tunel from y to y2- Used to connect rooms.
     fn apply_vertical_tunnel(&mut self, y1: usize, y2: usize, x: usize) {
         for y in min(y1, y2)..=max(y1, y2) {
             let idx = self.xy_idx(x, y);
@@ -71,8 +74,8 @@ impl Map {
         }
     }
 
-    // todo could be renamed to `new_dungeon` but keep the current name to have it same as the tutorial
-    fn new_map_rooms_and_corridors() -> Self {
+    /// Generates a new map with rectangular rooms connected by corridors.
+    fn new_dungeon() -> Self {
         let mut map = Map {
             tiles: vec![TileType::Wall; 80 * 50],
             rooms: vec![],
@@ -87,8 +90,8 @@ impl Map {
         for _ in 0..MAX_ROOMS {
             let w = rand::thread_rng().gen_range(MIN_SIZE..MAX_SIZE);
             let h = rand::thread_rng().gen_range(MIN_SIZE..MAX_SIZE);
-            let x = rand::thread_rng().gen_range(1..80 - w - 1) - 1;
-            let y = rand::thread_rng().gen_range(1..50 - h - 1) - 1;
+            let x = rand::thread_rng().gen_range(1..map.width - w - 1) - 1;
+            let y = rand::thread_rng().gen_range(1..map.height - h - 1) - 1;
             let new_room = Rect::new(x, y, w, h);
             if !map.rooms.iter().any(|other| new_room.intersect(other)) {
                 map.apply_room_to_map(&new_room);
@@ -113,7 +116,7 @@ impl Map {
         map
     }
 
-    /// check whether the wall is adjacent to a floor. We need only walls around floors, the rest is not needed, so this can help us to filter them out
+    /// checks whether the wall is adjacent to a floor. We need only walls around floors, the rest is not needed, so this can help us to filter them out
     fn next_to_floor(&self, x: usize, y: usize) -> bool {
         let index = self.xy_idx(x, y);
 
@@ -191,12 +194,13 @@ impl Map {
     }
 }
 
+/// Iterates over all tiles in the map and spawns them as a ECS entity. Also inserts [SpawnPoints] as a resource
 pub(super) fn spawn(mut cmd: Commands, asset_server: Res<AssetServer>) {
     let floor = asset_server.load("cave_floor_dark.png");
     let wall = asset_server.load("wall.png");
 
     trace!("generating new map");
-    let map = Map::new_map_rooms_and_corridors();
+    let map = Map::new_dungeon();
 
     for (index, tile) in map.tiles.iter().enumerate() {
         let (x, y) = map.idx_xy(index);

@@ -1,18 +1,5 @@
-use crate::{
-    components::{
-        requests::MovementRequest, Floor, FogOfWar, Monster, Player, Position, Revealed, Visible,
-        Wall,
-    },
-    consts::FOW_ALPHA,
-};
-use bevy::{
-    app::{Startup, Update},
-    log::trace,
-    prelude::{
-        run_once, Camera2d, Camera2dBundle, Changed, Commands, Entity, IntoSystemConfigs, Mut, Or,
-        Plugin, Query, Sprite, SystemSet, Transform, With, Without,
-    },
-};
+use crate::components::{requests::MovementRequest, Position};
+use bevy::{app::Startup, prelude::*};
 
 mod map;
 mod monster;
@@ -39,10 +26,12 @@ impl Plugin for InitSetup {
     }
 }
 
+/// Spawns 2D camera, so we can see stuff
 fn spawn_camera(mut cmd: Commands) {
     cmd.spawn(Camera2dBundle::default());
 }
 
+/// Processes movement, takes each [MovementRequest] and updates position accordingly
 fn process_movement(
     mut cmd: Commands,
     mut query: Query<(Entity, &mut Position, &MovementRequest)>,
@@ -55,6 +44,7 @@ fn process_movement(
         });
 }
 
+/// Internally we track position with [Position] but bevy uses [Transform]. This system then synces these two, by updating [Transform] base on the [Position]
 fn sync_position(
     position: Query<(Entity, &Position), Changed<Position>>,
     mut transforms: Query<&mut Transform>,
