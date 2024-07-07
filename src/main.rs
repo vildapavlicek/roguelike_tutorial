@@ -1,9 +1,12 @@
 use bevy::prelude::*;
+use big_brain::BigBrainPlugin;
 
+mod ai;
 mod algorithms;
 mod components;
 mod consts;
 mod resources;
+mod states;
 mod systems;
 mod utils;
 
@@ -27,6 +30,7 @@ fn main() {
                     ..default()
                 }),
             systems::InitSetup,
+            BigBrainPlugin::new(PreUpdate),
         ))
         .run();
 }

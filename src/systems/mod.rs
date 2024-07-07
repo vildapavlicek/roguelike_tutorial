@@ -1,4 +1,7 @@
-use crate::components::{requests::MovementRequest, Position};
+use crate::{
+    components::{requests::MovementRequest, Position},
+    states::GameState,
+};
 use bevy::{app::Startup, prelude::*};
 
 mod map;
@@ -16,13 +19,14 @@ impl Plugin for InitSetup {
     }
 
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(
-            Startup,
-            (spawn_camera, map::spawn)
-                .in_set(InitSetupSet)
-                .run_if(run_once()),
-        )
-        .add_plugins((player::PlayerPlugin, monster::MonsterPlugin));
+        app.insert_state(GameState::default())
+            .add_systems(
+                Startup,
+                (spawn_camera, map::spawn)
+                    .in_set(InitSetupSet)
+                    .run_if(run_once()),
+            )
+            .add_plugins((player::PlayerPlugin, monster::MonsterPlugin));
     }
 }
 

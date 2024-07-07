@@ -1,3 +1,5 @@
+use crate::components::BlocksSight;
+use crate::states::GameState;
 use crate::{
     components::{
         requests::MovementRequest, FogOfWar, Impassable, Player, Position, Revealed, Viewshed,
@@ -6,6 +8,9 @@ use crate::{
     consts::FOW_ALPHA,
 };
 use bevy::{asset::AssetServer, input::ButtonInput, prelude::*};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, SystemSet)]
+pub struct PlayerTurnSet;
 
 /// This plugin encapsulates all the systems that manage player's behiavour
 pub struct PlayerPlugin;
@@ -26,13 +31,11 @@ impl Plugin for PlayerPlugin {
         .add_systems(
             Update,
             (
-                player_input,
+                player_input.run_if(in_state(GameState::PlayerTurn)),
                 super::process_movement,
                 super::sync_position,
                 sync_camera_with_player,
-                (compute_fov, update_visibility, apply_fow)
-                    .chain()
-                    .run_if(player_moved),
+                (compute_fov, update_visibility, apply_fow).chain(),
             )
                 .chain(),
         );
@@ -60,6 +63,7 @@ fn spawn_player(
 /// This system handles user's input controlling player
 pub fn player_input(
     mut cmd: Commands,
+    mut next_state: ResMut<NextState<GameState>>,
     mut player: Query<(Entity, &Position, &mut Sprite), With<Player>>,
     input: ResMut<ButtonInput<KeyCode>>,
     impassable: Query<&Position, With<Impassable>>,
@@ -73,18 +77,22 @@ pub fn player_input(
         x += 1;
         sprite.flip_x = true;
     }
-
     if input.just_pressed(KeyCode::ArrowLeft) || input.just_pressed(KeyCode::Numpad4) {
         x -= 1;
         sprite.flip_x = false;
     }
-
     if input.just_pressed(KeyCode::ArrowUp) || input.just_pressed(KeyCode::Numpad8) {
         y += 1;
     }
     if input.just_pressed(KeyCode::ArrowDown) || input.just_pressed(KeyCode::Numpad2) {
         y -= 1;
     }
+
+    // skpping turn
+    if input.just_pressed(KeyCode::KeyS) || input.just_pressed(KeyCode::Numpad5) {
+        next_state.set(GameState::EnemyTurn);
+        return;
+    };
 
     // no movement
     if x == 0 && y == 0 {
@@ -99,6 +107,7 @@ pub fn player_input(
     }
 
     cmd.entity(player_ent).insert(MovementRequest { x, y });
+    next_state.set(GameState::EnemyTurn);
 }
 
 /// This is our check method to see if player moved so we know when to run other systems
@@ -109,11 +118,11 @@ fn player_moved(query: Query<Ref<Position>, With<Player>>) -> bool {
 /// Computes player's current field of vision
 fn compute_fov(
     mut player_pos: Query<(&Position, &mut Viewshed), With<Player>>,
-    walls: Query<&Position, With<Wall>>,
+    blocks_sight: Query<&Position, With<BlocksSight>>,
 ) {
     let (p_position, mut viewshed) = player_pos.single_mut();
     viewshed.visible_tiles = crate::algorithms::fov::MyVisibility::new(
-        |x, y| walls.iter().any(|pos| pos.x == x && pos.y == y),
+        |x, y| blocks_sight.iter().any(|pos| pos.x == x && pos.y == y),
         |x, y| euclidean_distance(0, 0, x, y),
     )
     .compute(*p_position, viewshed.visible_range as i32);

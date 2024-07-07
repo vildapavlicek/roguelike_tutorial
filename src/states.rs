@@ -1,6 +1,9 @@
+use bevy::prelude::States;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
 pub enum GameState {
     Menu,
-    AwaitingPlayerInput,
-    ProcessingPlayerTurn,
+    #[default]
+    PlayerTurn,
     EnemyTurn,
 }

@@ -1,14 +1,17 @@
 use crate::{
-    components::{Monster, Viewshed},
+    ai::{ChasePlayer, CurseAtPlayer, PlayerVisible},
+    algorithms::fov::MyVisibility,
+    components::{BlocksSight, Impassable, Monster, Name, Position, Viewshed, Wall},
     resources::SpawnPoints,
+    states::GameState,
 };
 use bevy::{
-    app::Startup,
+    app::{PreUpdate, Startup},
     log::trace,
-    prelude::{
-        default, run_once, AssetServer, Commands, IntoSystemConfigs, Plugin, Res, SpriteBundle,
-    },
+    prelude::*,
+    utils::HashSet,
 };
+use big_brain::{pickers::FirstToScore, thinker::Thinker, BigBrainSet};
 use rand::Rng;
 
 pub(super) struct MonsterPlugin;
@@ -18,6 +21,20 @@ impl Plugin for MonsterPlugin {
         app.add_systems(
             Startup,
             spawn_monsters.run_if(run_once()).after(super::InitSetupSet),
+        )
+        .add_systems(
+            Update,
+            (
+                compute_fov,
+                (
+                    crate::ai::player_visible_system.in_set(BigBrainSet::Scorers),
+                    crate::ai::curse_at_player_system.in_set(BigBrainSet::Actions),
+                    crate::ai::chase_player.in_set(BigBrainSet::Actions),
+                    end_turn,
+                )
+                    .run_if(in_state(GameState::EnemyTurn))
+                    .chain(),
+            ),
         );
     }
 }
@@ -32,17 +49,62 @@ pub fn spawn_monsters(
     let goblin = asset_server.load("goblin.png");
     let orc = asset_server.load("orc.png");
 
-    spawn_points.monsters.iter().for_each(|spawn_point| {
-        let texture = (rand::thread_rng().gen_range(0f32..1f32) > 0.75f32)
-            .then(|| orc.clone())
-            .unwrap_or(goblin.clone());
-        cmd.spawn(SpriteBundle {
-            visibility: bevy::render::view::Visibility::Hidden,
-            texture,
-            ..default()
+    spawn_points
+        .monsters
+        .iter()
+        .enumerate()
+        .for_each(|(i, spawn_point)| {
+            let (texture, name) = (rand::thread_rng().gen_range(0f32..1f32) > 0.75f32)
+                .then(|| (orc.clone(), "Orc"))
+                .unwrap_or((goblin.clone(), "Goblin"));
+            cmd.spawn((
+                SpriteBundle {
+                    visibility: bevy::render::view::Visibility::Hidden,
+                    texture,
+                    ..default()
+                },
+                *spawn_point,
+                Viewshed::new(4),
+                Monster,
+                // Impassable,
+                BlocksSight,
+                Name(format!("{name} {i}")),
+                Thinker::build()
+                    .picker(FirstToScore { threshold: 0.5 })
+                    .when(PlayerVisible, ChasePlayer),
+            ));
         })
-        .insert(*spawn_point)
-        .insert(Viewshed::new(4))
-        .insert(Monster);
-    })
+}
+
+fn compute_fov(
+    mut monsters: Query<(&Position, &mut Viewshed), With<Monster>>,
+    walls: Query<&Position, With<Wall>>,
+) {
+    fn compute_and_update_fov<'a>(
+        walls: &'a HashSet<&'a Position>,
+    ) -> impl FnMut((&'a Position, Mut<'a, Viewshed>)) -> () + 'a {
+        return move |(position, mut viewshed): (&'a Position, Mut<'a, Viewshed>)| {
+            let visible_tiles = MyVisibility::new(
+                |x, y| walls.iter().any(|pos| pos.x == x && pos.y == y),
+                |x, y| euclidean_distance(0, 0, x, y),
+            )
+            .compute(*position, viewshed.visible_range() as i32);
+            viewshed.set_visible_tiles(visible_tiles);
+        };
+    }
+
+    let walls = HashSet::from_iter(walls.into_iter());
+
+    monsters.iter_mut().for_each(compute_and_update_fov(&walls))
+}
+
+fn euclidean_distance(p1_x: i32, p1_y: i32, p2_x: i32, p2_y: i32) -> i32 {
+    let dx = (p1_x - p2_x) as f64;
+    let dy = (p1_y - p2_y) as f64;
+    ((dx * dx + dy * dy).sqrt()) as i32
+}
+
+fn end_turn(mut state: ResMut<NextState<GameState>>) {
+    trace!("ending monster turn");
+    state.set(GameState::PlayerTurn)
 }

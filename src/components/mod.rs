@@ -4,11 +4,27 @@ use bevy::{
     utils::hashbrown::HashSet,
 };
 use std::{
+    fmt::Display,
     hash::Hash,
     ops::{Add, AddAssign},
 };
 
 pub mod requests;
+
+#[derive(Debug, Eq, PartialEq, Component, Clone)]
+pub struct Name(pub String);
+
+impl Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Default for Name {
+    fn default() -> Self {
+        Name(String::from("Name not set"))
+    }
+}
 
 /// Our position custom position component used for tracking entity's position in a grid using int.
 /// This position is to simply some logic and to keep more consistent with the tutorial. It gets translates into [bevy::prelude::Transform] by system.
@@ -23,6 +39,34 @@ pub struct Position {
 impl Position {
     pub fn new(x: i32, y: i32, z: i32) -> Self {
         Position { x, y, z }
+    }
+
+    /// This is helper for A* algo and returns all possible directions we can move in
+    pub fn possible_successors(&self) -> Vec<Position> {
+        vec![
+            // up
+            Position::new(self.x, self.y + 1, self.z),
+            // up, right
+            Position::new(self.x + 1, self.y + 1, self.z),
+            // right
+            Position::new(self.x + 1, self.y, self.z),
+            // right, down
+            Position::new(self.x + 1, self.y - 1, self.z),
+            // down
+            Position::new(self.x, self.y - 1, self.z),
+            // down, left
+            Position::new(self.x - 1, self.y - 1, self.z),
+            // left
+            Position::new(self.x - 1, self.y, self.z),
+            // left, up
+            Position::new(self.x - 1, self.y + 1, self.z),
+        ]
+    }
+
+    pub fn distance(self, rhs: Position) -> i32 {
+        let dx = (self.x - rhs.x) as f64;
+        let dy = (self.y - rhs.y) as f64;
+        ((dx * dx + dy * dy).sqrt()) as i32
     }
 }
 
@@ -114,6 +158,18 @@ impl Viewshed {
             visible_tiles: HashSet::new(),
         }
     }
+
+    pub fn visible_range(&self) -> u8 {
+        self.visible_range
+    }
+
+    pub fn set_visible_tiles(&mut self, visible_tiles: HashSet<Position>) {
+        self.visible_tiles = visible_tiles
+    }
+
+    pub fn contains(&self, pos: &Position) -> bool {
+        self.visible_tiles.contains(pos)
+    }
 }
 
 /// Marks entities which are currently inside player's field of view
@@ -131,3 +187,6 @@ pub struct Monster;
 /// Used to mark entities that will be hidden by Fog of War when not in player's field of view
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct FogOfWar;
+
+#[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
+pub struct BlocksSight;

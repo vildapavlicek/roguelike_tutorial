@@ -1,7 +1,7 @@
 mod rect;
 
 use crate::{
-    components::{Floor, FogOfWar, Impassable, Position, Wall},
+    components::{BlocksSight, Floor, FogOfWar, Impassable, Position, Wall},
     consts::{FLOOR_Z, MONSTER_Z, PLAYER_Z, SPRITE_SIZE, WALL_Z},
     resources::SpawnPoints,
 };
@@ -224,20 +224,23 @@ pub(super) fn spawn(mut cmd: Commands, asset_server: Res<AssetServer>) {
                 if !map.next_to_floor(x, y) {
                     continue;
                 }
-                cmd.spawn(SpriteBundle {
-                    texture: wall.clone(),
-                    visibility: Visibility::Hidden,
-                    transform: Transform::from_translation(Vec3::new(
-                        x as f32 * SPRITE_SIZE,
-                        y as f32 * SPRITE_SIZE,
-                        FLOOR_Z,
-                    )),
-                    ..default()
-                })
-                .insert(Position::new(x as i32, y as i32, WALL_Z as i32))
-                .insert(Wall)
-                .insert(Impassable)
-                .insert(FogOfWar);
+                cmd.spawn((
+                    SpriteBundle {
+                        texture: wall.clone(),
+                        visibility: Visibility::Hidden,
+                        transform: Transform::from_translation(Vec3::new(
+                            x as f32 * SPRITE_SIZE,
+                            y as f32 * SPRITE_SIZE,
+                            FLOOR_Z,
+                        )),
+                        ..default()
+                    },
+                    BlocksSight,
+                    Wall,
+                    Impassable,
+                    FogOfWar,
+                    Position::new(x as i32, y as i32, WALL_Z as i32),
+                ));
             }
         };
     }

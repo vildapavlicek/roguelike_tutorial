@@ -5,4 +5,6 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.13.2"
+big-brain = "0.20.0"
+pathfinding = "4.10.0"
 rand = "0.8.5"
