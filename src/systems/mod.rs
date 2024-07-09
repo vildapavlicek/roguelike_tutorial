@@ -1,9 +1,10 @@
 use crate::{
-    components::{requests::MovementRequest, Position},
+    components::{combat::Health, requests::MovementRequest, Player, Position},
     states::GameState,
 };
 use bevy::{app::Startup, prelude::*};
 
+mod combat;
 mod map;
 mod monster;
 mod player;
@@ -20,13 +21,18 @@ impl Plugin for InitSetup {
 
     fn build(&self, app: &mut bevy::prelude::App) {
         app.insert_state(GameState::default())
+            .add_plugins((
+                player::PlayerPlugin,
+                monster::MonsterPlugin,
+                combat::CombatSystemPlugin,
+            ))
             .add_systems(
                 Startup,
                 (spawn_camera, map::spawn)
                     .in_set(InitSetupSet)
                     .run_if(run_once()),
             )
-            .add_plugins((player::PlayerPlugin, monster::MonsterPlugin));
+            .add_systems(Update, check_player_death);
     }
 }
 
@@ -58,4 +64,16 @@ fn sync_position(
             transform.translation = pos.into();
         };
     });
+}
+
+fn check_player_death(
+    query: Query<&Health, With<Player>>,
+    mut state: ResMut<NextState<GameState>>,
+) {
+    let hp = query.single();
+
+    if hp.current <= hp.min {
+        warn!("player has died!");
+        state.set(GameState::PlayerDead);
+    }
 }

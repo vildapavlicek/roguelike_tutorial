@@ -6,4 +6,5 @@ pub enum GameState {
     #[default]
     PlayerTurn,
     EnemyTurn,
+    PlayerDead,
 }

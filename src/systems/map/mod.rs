@@ -1,7 +1,7 @@
 mod rect;
 
 use crate::{
-    components::{BlocksSight, Floor, FogOfWar, Impassable, Position, Wall},
+    components::{BlocksSight, Floor, FogOfWar, BlocksTile, Position, Wall},
     consts::{FLOOR_Z, MONSTER_Z, PLAYER_Z, SPRITE_SIZE, WALL_Z},
     resources::SpawnPoints,
 };
@@ -237,7 +237,7 @@ pub(super) fn spawn(mut cmd: Commands, asset_server: Res<AssetServer>) {
                     },
                     BlocksSight,
                     Wall,
-                    Impassable,
+                    BlocksTile,
                     FogOfWar,
                     Position::new(x as i32, y as i32, WALL_Z as i32),
                 ));

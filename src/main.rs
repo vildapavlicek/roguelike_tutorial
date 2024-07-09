@@ -26,11 +26,11 @@ fn main() {
                     ..default()
                 })
                 .set(bevy::log::LogPlugin {
-                    filter: "roguelike_tutorial=trace".to_string(),
+                    filter: "roguelike_tutorial=trace,roguelike_tutorial::ai=debug,roguelike_tutorial::systems::combat=debug".to_string(),
                     ..default()
                 }),
             systems::InitSetup,
-            BigBrainPlugin::new(PreUpdate),
+            BigBrainPlugin::new(Update),
         ))
         .run();
 }

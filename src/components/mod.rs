@@ -1,3 +1,7 @@
+pub mod bundles;
+pub mod combat;
+pub mod requests;
+
 use crate::consts::SPRITE_SIZE;
 use bevy::{
     prelude::{Component, Vec3},
@@ -9,10 +13,14 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-pub mod requests;
-
 #[derive(Debug, Eq, PartialEq, Component, Clone)]
 pub struct Name(pub String);
+
+impl Name {
+    pub fn new<T: ToString>(name: T) -> Self {
+        Name(name.to_string())
+    }
+}
 
 impl Display for Name {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -42,8 +50,8 @@ impl Position {
     }
 
     /// This is helper for A* algo and returns all possible directions we can move in
-    pub fn possible_successors(&self) -> Vec<Position> {
-        vec![
+    pub fn possible_successors(&self) -> [Position; 8] {
+        [
             // up
             Position::new(self.x, self.y + 1, self.z),
             // up, right
@@ -68,20 +76,21 @@ impl Position {
         let dy = (self.y - rhs.y) as f64;
         ((dx * dx + dy * dy).sqrt()) as i32
     }
+
+    pub fn next_to(&self, rhs: &Position) -> bool {
+        self.distance(*rhs) == 1
+    }
+}
+
+#[test]
+fn test() {
+    dbg!(Position { x: 0, y: 0, z: 20 }.next_to(&Position { x: 1, y: 0, z: 10 }));
 }
 
 impl PartialEq for Position {
     fn eq(&self, other: &Self) -> bool {
         self.x == other.x && self.y == other.y
     }
-}
-
-#[test]
-fn test() {
-    assert_eq!(
-        Position { x: 1, y: 1, z: 55 },
-        Position { x: 1, y: 1, z: 33 }
-    )
 }
 
 impl Add<requests::MovementRequest> for Position {
@@ -190,3 +199,6 @@ pub struct FogOfWar;
 
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct BlocksSight;
+
+#[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
+pub struct BlocksTile;

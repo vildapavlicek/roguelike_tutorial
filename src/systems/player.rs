@@ -1,9 +1,10 @@
+use crate::components::requests::MeeleeAttackRequest;
 use crate::components::BlocksSight;
 use crate::states::GameState;
 use crate::{
     components::{
-        requests::MovementRequest, FogOfWar, Impassable, Player, Position, Revealed, Viewshed,
-        Visible, Wall,
+        self, requests::MovementRequest, BlocksTile, FogOfWar, Monster, Name, Player, Position,
+        Revealed, Viewshed, Visible, Wall,
     },
     consts::FOW_ALPHA,
 };
@@ -50,14 +51,17 @@ fn spawn_player(
 ) {
     let player_sprite = asset_server.load("hooded.png");
 
-    cmd.spawn(SpriteBundle {
-        texture: player_sprite,
-        ..default()
-    })
-    .insert(spawn_point.player)
-    // .insert(Position::new(0, 0, PLAYER_Z as i32))
-    .insert(crate::components::Player)
-    .insert(Viewshed::new(4));
+    cmd.spawn((
+        SpriteBundle {
+            texture: player_sprite,
+            ..default()
+        },
+        spawn_point.player,
+        crate::components::Player,
+        Viewshed::new(4),
+        Name::new("Player"),
+        components::bundles::CombatStats::new(30, 5, 2),
+    ));
 }
 
 /// This system handles user's input controlling player
@@ -66,26 +70,61 @@ pub fn player_input(
     mut next_state: ResMut<NextState<GameState>>,
     mut player: Query<(Entity, &Position, &mut Sprite), With<Player>>,
     input: ResMut<ButtonInput<KeyCode>>,
-    impassable: Query<&Position, With<Impassable>>,
+    impassable: Query<&Position, (With<BlocksTile>, Without<Monster>)>,
+    monsters: Query<(Entity, &Position), With<Monster>>,
 ) {
     let (player_ent, player_pos, mut sprite) = player.single_mut();
 
     let (mut x, mut y) = (0, 0);
 
     // by default we look to the left, so we flip on right move
-    if input.just_pressed(KeyCode::ArrowRight) || input.just_pressed(KeyCode::Numpad6) {
+    if input.just_pressed(KeyCode::ArrowRight)
+        || input.just_pressed(KeyCode::KeyL)
+        || input.just_pressed(KeyCode::Numpad6)
+    {
         x += 1;
         sprite.flip_x = true;
     }
-    if input.just_pressed(KeyCode::ArrowLeft) || input.just_pressed(KeyCode::Numpad4) {
+    if input.just_pressed(KeyCode::ArrowLeft)
+        || input.just_pressed(KeyCode::KeyH)
+        || input.just_pressed(KeyCode::Numpad4)
+    {
         x -= 1;
         sprite.flip_x = false;
     }
-    if input.just_pressed(KeyCode::ArrowUp) || input.just_pressed(KeyCode::Numpad8) {
+    if input.just_pressed(KeyCode::ArrowUp)
+        || input.just_pressed(KeyCode::KeyK)
+        || input.just_pressed(KeyCode::Numpad8)
+    {
         y += 1;
     }
-    if input.just_pressed(KeyCode::ArrowDown) || input.just_pressed(KeyCode::Numpad2) {
+    if input.just_pressed(KeyCode::ArrowDown)
+        || input.just_pressed(KeyCode::KeyJ)
+        || input.just_pressed(KeyCode::Numpad2)
+    {
         y -= 1;
+    }
+
+    // diagonal movement
+    // up, right
+    if input.just_pressed(KeyCode::Numpad9) || input.just_pressed(KeyCode::KeyU) {
+        y += 1;
+        x += 1;
+    }
+    // down, right
+    if input.just_pressed(KeyCode::Numpad3) || input.just_pressed(KeyCode::KeyN) {
+        y -= 1;
+        x += 1;
+    }
+    // down, left
+    if input.just_pressed(KeyCode::Numpad1) || input.just_pressed(KeyCode::KeyB) {
+        y -= 1;
+        x -= 1;
+    }
+    // up, left
+    if input.just_pressed(KeyCode::Numpad7) || input.just_pressed(KeyCode::KeyY) {
+        y += 1;
+        x -= 1;
     }
 
     // skpping turn
@@ -96,6 +135,17 @@ pub fn player_input(
 
     // no movement
     if x == 0 && y == 0 {
+        return;
+    }
+
+    if let Some((monster_ent, _)) = monsters
+        .iter()
+        .find(|(_, pos)| **pos == (*player_pos + MovementRequest { x, y }))
+    {
+        debug!("attacking monster!");
+        cmd.entity(player_ent)
+            .insert(MeeleeAttackRequest::new(monster_ent));
+        next_state.set(GameState::EnemyTurn);
         return;
     }
 

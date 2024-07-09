@@ -1,7 +1,10 @@
-use crate::components::{Floor, Impassable, Monster, Name, Player, Position, Viewshed, Wall};
+use crate::components::{
+    combat::Power, requests::MeeleeAttackRequest, BlocksTile, Monster, Name, Player, Position,
+    Viewshed,
+};
 use bevy::{
     log::{debug, error, info, trace, warn},
-    prelude::{Component, Mut, Query, With, Without},
+    prelude::{Commands, Component, Entity, Mut, Query, With, Without},
     utils::hashbrown::HashSet,
 };
 use big_brain::prelude::*;
@@ -9,26 +12,28 @@ use big_brain::prelude::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ScorerBuilder, Component)]
 pub struct PlayerVisible;
 
-pub fn player_visible_system(
-    viewshed: Query<&Viewshed, (With<Monster>, Without<Player>)>,
+pub fn player_visible_scorer_system(
+    viewshed: Query<(&Viewshed, &Position), (With<Monster>, Without<Player>)>,
     mut score_query: Query<(&Actor, &mut Score), With<PlayerVisible>>,
     ppos: Query<&Position, With<Player>>,
-    names: Query<&Name>,
 ) {
     let ppos = ppos.single();
     score_query
         .iter_mut()
         .for_each(|(Actor(actor), mut score)| {
-            let name = names
-                .get(*actor)
-                .map(ToOwned::to_owned)
-                .unwrap_or(Name::default());
-
             score.set(
                 viewshed
                     .get(*actor)
                     .ok()
-                    .map(|viewshed| viewshed.contains(ppos).then_some(1f32))
+                    .map(|(viewshed, position)| {
+                        // if ppos.next_to(position) {
+                        //     Some(0.0f32)
+                        // } else {
+                        //     viewshed.contains(ppos).then_some(0.6f32)
+                        // }
+
+                        viewshed.contains(ppos).then_some(0.6f32)
+                    })
                     .flatten()
                     .unwrap_or(0f32),
             );
@@ -38,7 +43,7 @@ pub fn player_visible_system(
 #[derive(Debug, Clone, Component, ActionBuilder)]
 pub struct CurseAtPlayer;
 
-pub fn curse_at_player_system(
+pub fn curse_at_player_action_system(
     mut actors: Query<(&Actor, &mut ActionState), With<CurseAtPlayer>>,
     names: Query<&Name>,
 ) {
@@ -65,27 +70,28 @@ pub struct ChasePlayer;
 
 pub fn chase_player(
     mut actors: Query<(&Actor, &mut ActionState), With<ChasePlayer>>,
-    blockers: Query<&Position, (With<Impassable>, Without<Monster>)>,
-    mut mpos: Query<(&mut Position, &Name), (With<Monster>, Without<Impassable>)>,
+    blockers: Query<&Position, (With<BlocksTile>, Without<Monster>)>,
+    mut mpos: Query<(&mut Position, &Name), (With<Monster>, Without<BlocksTile>)>,
     ppos: Query<&Position, (With<Player>, Without<Monster>)>,
 ) {
-    trace!(actors = actors.iter().count(), "running chase AI system");
     let mut impassable = HashSet::new();
     impassable.extend(blockers.into_iter().map(|pos| *pos));
+
     let finish = *ppos.single();
 
+    let mut finish_positions = HashSet::new();
+    finish_positions.extend(finish.possible_successors().into_iter());
+
     for (Actor(actor), mut action_state) in actors.iter_mut() {
-        trace!(?actor, "trying to chase");
         if !matches!(*action_state, ActionState::Requested) {
             warn!(?action_state, "unexpected action state");
+            *action_state = ActionState::Success;
             continue;
         };
 
         let Ok((monster_pos, name)) = mpos.get(*actor) else {
             continue;
         };
-
-        info!(%name, "trying to get path for monster to player");
 
         let mut monster_pos_set = HashSet::new();
         monster_pos_set.extend(mpos.iter().map(|(pos, _)| *pos));
@@ -104,7 +110,7 @@ pub fn chase_player(
                     .collect::<Vec<(Position, i32)>>()
             },
             |p| p.distance(*monster_pos) / 3,
-            |p| p == &finish,
+            |p| finish_positions.contains(p),
         ) else {
             debug!("no path found");
             continue;
@@ -121,5 +127,60 @@ pub fn chase_player(
         }
 
         *action_state = ActionState::Success;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ScorerBuilder, Component)]
+pub struct PlayerInAttackRange;
+
+/// Checks whether the distance from [Actor] to [Player] is `1` and if so, that means [Monster] is standing next to [Player] and thus can attack it with meelee attack
+/// Sets score of `0.1`
+pub fn player_in_meelee_range_scorer(
+    ppos: Query<&Position, With<Player>>,
+    mpos: Query<&Position, (With<Monster>, Without<Player>)>,
+    mut score_query: Query<(&Actor, &mut Score), With<PlayerInAttackRange>>,
+) {
+    let ppos = ppos.single();
+
+    for (Actor(entity), mut score) in score_query.iter_mut() {
+        score.set(
+            mpos.get(*entity)
+                .ok()
+                .map(|pos| {
+                    //debug!(?ppos, ?pos, ?entity, "player vs monster pos");
+                    pos.next_to(ppos).then(|| 1.0)
+                })
+                .flatten()
+                .unwrap_or_default(),
+        );
+    }
+}
+
+#[derive(Debug, Clone, Component, ActionBuilder)]
+pub struct MeeleeAttackPlayer;
+
+pub fn meelee_attack_player_action(
+    mut cmd: Commands,
+    mut actors: Query<(&Actor, &mut ActionState), With<MeeleeAttackPlayer>>,
+    p_entity: Query<Entity, With<Player>>,
+) {
+    debug!(
+        actors = actors.iter().count(),
+        "running meelee attack AI system"
+    );
+    let p_entity = p_entity.single();
+
+    for (Actor(entity), mut action_state) in actors.iter_mut() {
+        match *action_state {
+            ActionState::Requested => {
+                cmd.entity(*entity)
+                    .insert(MeeleeAttackRequest::new(p_entity));
+                *action_state = ActionState::Success;
+            }
+            _ => {
+                warn!("unexpected state in meelee system");
+                *action_state = ActionState::Success;
+            }
+        }
     }
 }

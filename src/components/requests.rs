@@ -2,7 +2,7 @@
 //!
 //!
 //!
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 /// Component to request movement. The values indicate bych how much the entity should move by.
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Component)]
@@ -23,5 +23,17 @@ impl MovementRequest {
     }
     pub fn left() -> Self {
         MovementRequest { x: -1, y: 0 }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Component)]
+pub struct MeeleeAttackRequest {
+    // attacker: Entity,
+    pub target: Entity,
+}
+
+impl MeeleeAttackRequest {
+    pub fn new(target: Entity) -> Self {
+        Self { target }
     }
 }

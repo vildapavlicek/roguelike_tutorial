@@ -1,12 +1,13 @@
 use crate::{
-    ai::{ChasePlayer, CurseAtPlayer, PlayerVisible},
+    ai::{ChasePlayer, CurseAtPlayer, MeeleeAttackPlayer, PlayerInAttackRange, PlayerVisible},
     algorithms::fov::MyVisibility,
-    components::{BlocksSight, Impassable, Monster, Name, Position, Viewshed, Wall},
+    components::{self, BlocksSight, BlocksTile, Monster, Name, Position, Viewshed, Wall},
     resources::SpawnPoints,
     states::GameState,
 };
 use bevy::{
     app::{PreUpdate, Startup},
+    ecs::component,
     log::trace,
     prelude::*,
     utils::HashSet,
@@ -27,9 +28,16 @@ impl Plugin for MonsterPlugin {
             (
                 compute_fov,
                 (
-                    crate::ai::player_visible_system.in_set(BigBrainSet::Scorers),
-                    crate::ai::curse_at_player_system.in_set(BigBrainSet::Actions),
-                    crate::ai::chase_player.in_set(BigBrainSet::Actions),
+                    (
+                        crate::ai::player_visible_scorer_system,
+                        crate::ai::player_in_meelee_range_scorer,
+                    )
+                        .in_set(BigBrainSet::Scorers),
+                    (
+                        crate::ai::chase_player,
+                        crate::ai::meelee_attack_player_action,
+                    )
+                        .in_set(BigBrainSet::Actions),
                     end_turn,
                 )
                     .run_if(in_state(GameState::EnemyTurn))
@@ -66,11 +74,12 @@ pub fn spawn_monsters(
                 *spawn_point,
                 Viewshed::new(4),
                 Monster,
-                // Impassable,
                 BlocksSight,
                 Name(format!("{name} {i}")),
+                components::bundles::CombatStats::new(16, 4, 1),
                 Thinker::build()
                     .picker(FirstToScore { threshold: 0.5 })
+                    .when(PlayerInAttackRange, MeeleeAttackPlayer)
                     .when(PlayerVisible, ChasePlayer),
             ));
         })
