@@ -2,7 +2,7 @@ use bevy::prelude::Component;
 
 #[derive(Debug, PartialEq, Eq, Component, Clone, Copy)]
 pub struct Health {
-    max: i32,
+    pub max: i32,
     pub current: i32,
     pub min: i32,
 }

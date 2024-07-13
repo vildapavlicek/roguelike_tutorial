@@ -1,4 +1,4 @@
-use crate::components::Name;
+use crate::components::{combat::Health, Name, Player};
 use bevy::prelude::*;
 use chrono::Local;
 
@@ -11,8 +11,13 @@ pub struct LogUiPlugin;
 impl Plugin for LogUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<LogMessage>()
-            .add_systems(Startup, spawn_log_ui.run_if(run_once()))
-            .add_systems(Update, update_log_texts);
+            .add_systems(
+                Startup,
+                spawn_log_ui
+                    .run_if(run_once())
+                    .after(crate::systems::PlayerInitSet),
+            )
+            .add_systems(Update, (update_log_texts, update_hp_bar));
     }
 }
 
@@ -21,6 +26,12 @@ pub struct LogContainer;
 
 #[derive(Debug, Component, Copy, Clone)]
 pub struct LogText;
+
+#[derive(Debug, Component, Copy, Clone)]
+pub struct HpNode;
+
+#[derive(Debug, Component, Copy, Clone)]
+pub struct HpText;
 
 /// Entity IDs of messagess that should be displayed by the combat log
 #[derive(Debug, Component, Copy, Clone)]
@@ -173,7 +184,7 @@ impl From<&LogMessage> for TextBundle {
     }
 }
 
-fn spawn_log_ui(mut cmd: bevy::prelude::Commands) {
+fn spawn_log_ui(mut cmd: bevy::prelude::Commands, player_hp: Query<&Health, With<Player>>) {
     let container = NodeBundle {
         style: Style {
             width: Val::Percent(60f32),
@@ -211,8 +222,45 @@ fn spawn_log_ui(mut cmd: bevy::prelude::Commands) {
         ))
         .id();
 
-    cmd.spawn((container, LogContainer)).add_child(init_message);
-
+    cmd.spawn((container, LogContainer))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(100f32),
+                            height: Val::Px(25f32),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Stretch,
+                            position_type: PositionType::Absolute,
+                            bottom: Val::Percent(9.5f32),
+                            left: Val::Percent(33f32),
+                            justify_content: JustifyContent::Center,
+                            align_content: AlignContent::Stretch,
+                            padding: UiRect::all(Val::Px(10f32)),
+                            ..default()
+                        },
+                        background_color: BackgroundColor(Color::rgba(0.50, 0f32, 0f32, 0.50)),
+                        ..default()
+                    },
+                    HpNode,
+                ))
+                .with_children(|parent| {
+                    let player_hp = player_hp.single();
+                    parent.spawn((
+                        TextBundle::from_section(
+                            format!("HP: {}/{}", player_hp.current, player_hp.max),
+                            TextStyle {
+                                color: Color::WHITE,
+                                font_size: TEXT_SIZE,
+                                ..default()
+                            },
+                        ),
+                        HpText,
+                    ));
+                });
+        })
+        .push_children(&[init_message]);
     cmd.spawn(Messages([Some(init_message), None, None, None, None]));
 }
 
@@ -235,4 +283,60 @@ fn update_log_texts(
     }
 
     cmd.entity(container).push_children(&messages.to_vec());
+}
+
+fn update_hp_bar(
+    mut hp_text: Query<&mut Text, With<HpText>>,
+    player_hp: Query<&Health, With<Player>>,
+) {
+    let player_health = player_hp.single();
+    let mut health_text = hp_text.single_mut();
+
+    health_text.sections = vec![
+        TextSection::new(
+            "HP: ",
+            TextStyle {
+                font_size: TEXT_SIZE,
+                color: Color::WHITE,
+                ..default()
+            },
+        ),
+        TextSection::new(
+            format!("{}", player_health.current),
+            TextStyle {
+                font_size: TEXT_SIZE,
+                color: match player_health.current {
+                    health if health <= get_percentage(player_health.max, 0.25) => Color::RED,
+                    health if health <= get_percentage(player_health.max, 0.33) => Color::ORANGE,
+                    health if health <= get_percentage(player_health.max, 0.5) => Color::YELLOW,
+                    health if health <= get_percentage(player_health.max, 0.75) => {
+                        Color::YELLOW_GREEN
+                    }
+                    _ => Color::GREEN,
+                },
+                ..default()
+            },
+        ),
+        TextSection::new(
+            "/",
+            TextStyle {
+                font_size: TEXT_SIZE,
+                color: Color::WHITE,
+                ..default()
+            },
+        ),
+        TextSection::new(
+            format!("{}", player_health.max),
+            TextStyle {
+                font_size: TEXT_SIZE,
+                color: Color::WHITE,
+                ..default()
+            },
+        ),
+    ];
+}
+
+#[inline]
+fn get_percentage(value: i32, percent: f32) -> i32 {
+    (value as f32 * percent) as i32
 }

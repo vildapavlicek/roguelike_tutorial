@@ -3,6 +3,7 @@ use crate::{
     states::GameState,
 };
 use bevy::{app::Startup, prelude::*};
+pub use player::PlayerInitSet;
 
 mod combat;
 mod map;

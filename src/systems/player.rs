@@ -13,6 +13,9 @@ use bevy::{asset::AssetServer, input::ButtonInput, prelude::*};
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, SystemSet)]
 pub struct PlayerTurnSet;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, SystemSet)]
+pub struct PlayerInitSet;
+
 /// This plugin encapsulates all the systems that manage player's behiavour
 pub struct PlayerPlugin;
 
@@ -27,7 +30,8 @@ impl Plugin for PlayerPlugin {
             (spawn_player, compute_fov, update_visibility)
                 .chain()
                 .run_if(run_once())
-                .after(super::InitSetupSet),
+                .after(super::InitSetupSet)
+                .in_set(PlayerInitSet),
         )
         .add_systems(
             Update,
