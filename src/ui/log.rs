@@ -1,4 +1,4 @@
-use crate::components::{combat::Health, Name, Player};
+use crate::components::{combat::Health, ui::*, Name, Player};
 use bevy::prelude::*;
 use chrono::Local;
 
@@ -18,45 +18,6 @@ impl Plugin for LogUiPlugin {
                     .after(crate::systems::PlayerInitSet),
             )
             .add_systems(Update, (update_log_texts, update_hp_bar));
-    }
-}
-
-#[derive(Debug, Component, Copy, Clone)]
-pub struct LogContainer;
-
-#[derive(Debug, Component, Copy, Clone)]
-pub struct LogText;
-
-#[derive(Debug, Component, Copy, Clone)]
-pub struct HpNode;
-
-#[derive(Debug, Component, Copy, Clone)]
-pub struct HpText;
-
-/// Entity IDs of messagess that should be displayed by the combat log
-#[derive(Debug, Component, Copy, Clone)]
-pub struct Messages([Option<Entity>; 5]);
-
-impl Messages {
-    /// We want to only print X messages, so when we push new one, to be displayed, the last one has to be removed
-    /// Hence this returns the [Entity] of the message that should be despawned.
-    pub fn add(&mut self, entity: Entity) -> Option<Entity> {
-        let last = self.0.last().map(Clone::clone).flatten();
-
-        self.0 = [Some(entity), self.0[0], self.0[1], self.0[2], self.0[3]];
-        debug!(
-            ?last,
-            current_ents = ?self.0,
-            "checking what messages to display"
-        );
-        last
-    }
-
-    pub fn to_vec(&self) -> Vec<Entity> {
-        self.0
-            .iter()
-            .filter_map(Clone::clone)
-            .collect::<Vec<Entity>>()
     }
 }
 
@@ -261,7 +222,7 @@ fn spawn_log_ui(mut cmd: bevy::prelude::Commands, player_hp: Query<&Health, With
                 });
         })
         .push_children(&[init_message]);
-    cmd.spawn(Messages([Some(init_message), None, None, None, None]));
+    cmd.spawn(Messages::new([Some(init_message), None, None, None, None]));
 }
 
 fn update_log_texts(

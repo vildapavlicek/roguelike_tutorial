@@ -1,6 +1,7 @@
 pub mod bundles;
 pub mod combat;
 pub mod requests;
+pub mod ui;
 
 use crate::consts::SPRITE_SIZE;
 use bevy::{
@@ -126,6 +127,16 @@ impl From<Position> for Vec3 {
 impl From<&Position> for Vec3 {
     fn from(Position { x, y, z }: &Position) -> Self {
         Vec3::new(*x as f32 * SPRITE_SIZE, *y as f32 * SPRITE_SIZE, *z as f32)
+    }
+}
+
+impl From<&bevy::prelude::Transform> for Position {
+    fn from(value: &bevy::prelude::Transform) -> Self {
+        Position {
+            x: (value.translation.x / SPRITE_SIZE) as i32,
+            y: (value.translation.y / SPRITE_SIZE) as i32,
+            z: value.translation.z as i32,
+        }
     }
 }
 
