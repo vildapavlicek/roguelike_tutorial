@@ -1,17 +1,11 @@
 use crate::{
-    ai::{ChasePlayer, CurseAtPlayer, MeeleeAttackPlayer, PlayerInAttackRange, PlayerVisible},
+    ai::{ChasePlayer, MeeleeAttackPlayer, PlayerInAttackRange, PlayerVisible},
     algorithms::fov::MyVisibility,
-    components::{self, BlocksSight, BlocksTile, Monster, Name, Position, Viewshed, Wall},
+    components::{self, BlocksSight, Monster, Name, Position, Viewshed, Wall},
     resources::SpawnPoints,
     states::GameState,
 };
-use bevy::{
-    app::{PreUpdate, Startup},
-    ecs::component,
-    log::trace,
-    prelude::*,
-    utils::HashSet,
-};
+use bevy::{app::Startup, log::trace, prelude::*, utils::HashSet};
 use big_brain::{pickers::FirstToScore, thinker::Thinker, BigBrainSet};
 use rand::Rng;
 

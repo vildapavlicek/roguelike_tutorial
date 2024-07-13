@@ -1,9 +1,8 @@
 use crate::components::{
-    combat::Power, requests::MeeleeAttackRequest, BlocksTile, Monster, Name, Player, Position,
-    Viewshed,
+    requests::MeeleeAttackRequest, BlocksTile, Monster, Name, Player, Position, Viewshed,
 };
 use bevy::{
-    log::{debug, error, info, trace, warn},
+    log::{debug, error, warn},
     prelude::{Commands, Component, Entity, Mut, Query, With, Without},
     utils::hashbrown::HashSet,
 };
@@ -25,15 +24,7 @@ pub fn player_visible_scorer_system(
                 viewshed
                     .get(*actor)
                     .ok()
-                    .map(|(viewshed, position)| {
-                        // if ppos.next_to(position) {
-                        //     Some(0.0f32)
-                        // } else {
-                        //     viewshed.contains(ppos).then_some(0.6f32)
-                        // }
-
-                        viewshed.contains(ppos).then_some(0.6f32)
-                    })
+                    .map(|(viewshed, _)| viewshed.contains(ppos).then_some(0.6f32))
                     .flatten()
                     .unwrap_or(0f32),
             );
@@ -71,7 +62,7 @@ pub struct ChasePlayer;
 pub fn chase_player(
     mut actors: Query<(&Actor, &mut ActionState), With<ChasePlayer>>,
     blockers: Query<&Position, (With<BlocksTile>, Without<Monster>)>,
-    mut mpos: Query<(&mut Position, &Name), (With<Monster>, Without<BlocksTile>)>,
+    mut mpos: Query<&mut Position, (With<Monster>, Without<BlocksTile>)>,
     ppos: Query<&Position, (With<Player>, Without<Monster>)>,
 ) {
     let mut impassable = HashSet::new();
@@ -89,12 +80,12 @@ pub fn chase_player(
             continue;
         };
 
-        let Ok((monster_pos, name)) = mpos.get(*actor) else {
+        let Ok(monster_pos) = mpos.get(*actor) else {
             continue;
         };
 
         let mut monster_pos_set = HashSet::new();
-        monster_pos_set.extend(mpos.iter().map(|(pos, _)| *pos));
+        monster_pos_set.extend(mpos.iter().map(|pos| *pos));
 
         let Some((path, _cost)) = pathfinding::directed::astar::astar(
             monster_pos,
@@ -120,7 +111,7 @@ pub fn chase_player(
         match path.get(1) {
             Some(new_pos) => {
                 mpos.get_mut(*actor)
-                    .map(|((mut pos, _))| *pos = *new_pos)
+                    .map(|mut pos| *pos = *new_pos)
                     .expect("failed to update position, even tho we got it for path resolution");
             }
             None => debug!("path doesn't contain data at index 1"),

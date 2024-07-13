@@ -41,12 +41,6 @@ impl SufferDamage {
         Self { amount: vec![] }
     }
 
-    pub fn with_damage(damage: i32) -> Self {
-        Self {
-            amount: vec![damage],
-        }
-    }
-
     pub fn add_damage(&mut self, damage: i32) {
         self.amount.push(damage)
     }

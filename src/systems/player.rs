@@ -4,7 +4,7 @@ use crate::states::GameState;
 use crate::{
     components::{
         self, requests::MovementRequest, BlocksTile, FogOfWar, Monster, Name, Player, Position,
-        Revealed, Viewshed, Visible, Wall,
+        Revealed, Viewshed, Visible,
     },
     consts::FOW_ALPHA,
 };
@@ -162,11 +162,6 @@ pub fn player_input(
 
     cmd.entity(player_ent).insert(MovementRequest { x, y });
     next_state.set(GameState::EnemyTurn);
-}
-
-/// This is our check method to see if player moved so we know when to run other systems
-fn player_moved(query: Query<Ref<Position>, With<Player>>) -> bool {
-    query.single().is_changed()
 }
 
 /// Computes player's current field of vision
