@@ -8,6 +8,7 @@ mod consts;
 mod resources;
 mod states;
 mod systems;
+mod ui;
 mod utils;
 
 fn main() {
@@ -31,6 +32,7 @@ fn main() {
                 }),
             systems::InitSetup,
             BigBrainPlugin::new(Update),
+            ui::UiPlugin,
         ))
         .run();
 }

@@ -173,9 +173,13 @@ pub fn meelee_attack_player_action(
     for (Actor(entity), mut action_state) in actors.iter_mut() {
         match *action_state {
             ActionState::Requested => {
-                cmd.entity(*entity)
-                    .insert(MeeleeAttackRequest::new(p_entity));
-                *action_state = ActionState::Success;
+                if let Some(mut ent_commands) = cmd.get_entity(*entity) {
+                    ent_commands.insert(MeeleeAttackRequest::new(p_entity));
+                    *action_state = ActionState::Success;
+                    continue;
+                }
+
+                *action_state = ActionState::Failure;
             }
             _ => {
                 warn!("unexpected state in meelee system");

@@ -110,21 +110,25 @@ pub fn player_input(
     if input.just_pressed(KeyCode::Numpad9) || input.just_pressed(KeyCode::KeyU) {
         y += 1;
         x += 1;
+        sprite.flip_x = true;
     }
     // down, right
     if input.just_pressed(KeyCode::Numpad3) || input.just_pressed(KeyCode::KeyN) {
         y -= 1;
         x += 1;
+        sprite.flip_x = true;
     }
     // down, left
     if input.just_pressed(KeyCode::Numpad1) || input.just_pressed(KeyCode::KeyB) {
         y -= 1;
         x -= 1;
+        sprite.flip_x = false;
     }
     // up, left
     if input.just_pressed(KeyCode::Numpad7) || input.just_pressed(KeyCode::KeyY) {
         y += 1;
         x -= 1;
+        sprite.flip_x = false;
     }
 
     // skpping turn

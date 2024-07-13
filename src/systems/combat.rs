@@ -2,13 +2,15 @@
 //!
 //!
 
-use bevy::prelude::*;
-
-use crate::components::{
-    combat::{Defense, Health, Power, SufferDamage},
-    requests::MeeleeAttackRequest,
-    Name, Player,
+use crate::{
+    components::{
+        combat::{Defense, Health, Power, SufferDamage},
+        requests::MeeleeAttackRequest,
+        Name, Player,
+    },
+    ui::log::LogMessage,
 };
+use bevy::prelude::*;
 
 pub struct CombatSystemPlugin;
 impl Plugin for CombatSystemPlugin {
@@ -22,10 +24,12 @@ impl Plugin for CombatSystemPlugin {
 
 fn combat_system(
     mut cmd: Commands,
+    mut log_event_writer: EventWriter<LogMessage>,
     attackers: Query<(Entity, &Name, &MeeleeAttackRequest, &Power)>,
     mut targets: Query<(&Name, &mut SufferDamage, &Health, &Defense)>,
 ) {
     fn process_attack(
+        log_event_writer: &mut EventWriter<LogMessage>,
         mut suffer_damage: Mut<SufferDamage>,
         health: &Health,
         power: &Power,
@@ -45,6 +49,12 @@ fn combat_system(
 
         debug!(%attacker_name, %target_name, %damage, "attack success");
         suffer_damage.add_damage(damage);
+        log_event_writer.send(LogMessage::AttackMessage {
+            time: chrono::Local::now(),
+            attacker: attacker_name.clone(),
+            defender: target_name.clone(),
+            damage,
+        });
     }
 
     trace!(attackers = %attackers.iter().count(), "processing combat");
@@ -53,6 +63,7 @@ fn combat_system(
         match targets.get_mut(*target) {
             Ok((target_name, suffer_damage, health, defense)) => {
                 process_attack(
+                    &mut log_event_writer,
                     suffer_damage,
                     health,
                     power,
@@ -75,10 +86,18 @@ fn apply_damage(mut query: Query<(&mut Health, &mut SufferDamage)>) {
     query.iter_mut().for_each(apply_damage);
 }
 
-fn delete_the_dead(mut cmd: Commands, query: Query<(Entity, &Health), Without<Player>>) {
-    query.iter().for_each(|(entity, health)| {
+fn delete_the_dead(
+    mut cmd: Commands,
+    mut log_event_writer: EventWriter<LogMessage>,
+    query: Query<(Entity, Option<&Name>, &Health), Without<Player>>,
+) {
+    query.iter().for_each(|(entity, name, health)| {
         if health.is_dead() {
             cmd.entity(entity).despawn();
+            log_event_writer.send(LogMessage::Death {
+                time: chrono::Local::now(),
+                name: name.map(Clone::clone).unwrap_or(Name::new("Unnamed")),
+            });
         }
     });
 }
