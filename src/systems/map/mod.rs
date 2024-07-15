@@ -1,16 +1,22 @@
 mod rect;
 
 use crate::{
-    components::{BlocksSight, Floor, FogOfWar, BlocksTile, Position, Wall},
+    ai::{ChasePlayer, MeeleeAttackPlayer, PlayerInAttackRange, PlayerVisible},
+    components::{
+        bundles::CombatStats, BlocksSight, BlocksTile, Floor, FogOfWar, Monster, Name, Position,
+        Viewshed, Wall,
+    },
     consts::{FLOOR_Z, MONSTER_Z, PLAYER_Z, SPRITE_SIZE, WALL_Z},
     resources::SpawnPoints,
 };
 use bevy::{
-    asset::AssetServer,
+    asset::{AssetServer, Handle},
     log::trace,
     prelude::{default, Commands, Res, Resource, SpriteBundle, Transform, Vec3},
-    render::view::Visibility,
+    render::{texture::Image, view::Visibility},
+    utils::hashbrown::HashSet,
 };
+use big_brain::{pickers::FirstToScore, thinker::Thinker};
 use rand::Rng;
 use rect::Rect;
 use std::{
@@ -117,7 +123,7 @@ impl Map {
     }
 
     /// checks whether the wall is adjacent to a floor. We need only walls around floors, the rest is not needed, so this can help us to filter them out
-    fn next_to_floor(&self, x: usize, y: usize) -> bool {
+    fn adjacent_to_floor(&self, x: usize, y: usize) -> bool {
         let index = self.xy_idx(x, y);
 
         let up = index + self.width;
@@ -206,60 +212,173 @@ pub(super) fn spawn(mut cmd: Commands, asset_server: Res<AssetServer>) {
         let (x, y) = map.idx_xy(index);
         match tile {
             TileType::Floor => {
-                cmd.spawn(SpriteBundle {
-                    texture: floor.clone(),
-                    visibility: Visibility::Hidden,
-                    transform: Transform::from_translation(Vec3::new(
-                        x as f32 * SPRITE_SIZE,
-                        y as f32 * SPRITE_SIZE,
-                        FLOOR_Z,
-                    )),
-                    ..default()
-                })
-                .insert(Position::new(x as i32, y as i32, FLOOR_Z as i32))
-                .insert(Floor)
-                .insert(FogOfWar);
+                Spawner::spawn_floor(
+                    &mut cmd,
+                    Position::new(x as i32, y as i32, WALL_Z as i32),
+                    floor.clone(),
+                );
             }
             TileType::Wall => {
-                if !map.next_to_floor(x, y) {
+                if !map.adjacent_to_floor(x, y) {
                     continue;
                 }
-                cmd.spawn((
-                    SpriteBundle {
-                        texture: wall.clone(),
-                        visibility: Visibility::Hidden,
-                        transform: Transform::from_translation(Vec3::new(
-                            x as f32 * SPRITE_SIZE,
-                            y as f32 * SPRITE_SIZE,
-                            FLOOR_Z,
-                        )),
-                        ..default()
-                    },
-                    BlocksSight,
-                    Wall,
-                    BlocksTile,
-                    FogOfWar,
+                Spawner::spawn_wall(
+                    &mut cmd,
                     Position::new(x as i32, y as i32, WALL_Z as i32),
-                ));
+                    wall.clone(),
+                );
             }
         };
     }
 
-    let spawn_points = SpawnPoints {
-        player: map
-            .rooms
-            .get(0)
-            .map(Rect::center)
-            .map(|(x, y)| Position::new(x as i32, y as i32, PLAYER_Z as i32))
-            .expect("No rooms to spawn player in"),
-        monsters: map
-            .rooms
-            .iter()
-            .skip(1)
-            .map(Rect::center)
-            .map(|(x, y)| Position::new(x as i32, y as i32, MONSTER_Z as i32))
-            .collect(),
+    let Some(player_spawn_pos) = map.rooms.get(0).map(|room| {
+        let (x, y) = room.center();
+        Position::new(x as i32, y as i32, PLAYER_Z as i32)
+    }) else {
+        panic!("no room to spawn player!");
     };
 
-    cmd.insert_resource(spawn_points);
+    Spawner::spawn_player(&mut cmd, player_spawn_pos, &asset_server);
+
+    map.rooms.iter().skip(1).for_each(|room| {
+        Spawner::populate_room(&mut cmd, room, 4, 2, &asset_server);
+    });
+}
+
+/// Spanwer takes care of spawning anything and everything on generated map. Including monsters and player.
+struct Spawner;
+
+impl Spawner {
+    fn spawn_monster(cmd: &mut Commands, position: Position, asset_server: &Res<AssetServer>) {
+        match (rand::thread_rng().gen_range(0f32..1f32) > 0.75f32) {
+            true => Self::spawn_orc(cmd, position, asset_server.load("orc.png")),
+            false => Self::spawn_goblin(cmd, position, asset_server.load("goblin.png")),
+        }
+    }
+
+    fn spawn_orc(cmd: &mut Commands, position: Position, texture: Handle<Image>) {
+        cmd.spawn((
+            SpriteBundle {
+                visibility: bevy::render::view::Visibility::Hidden,
+                texture,
+                ..default()
+            },
+            position,
+            Viewshed::new(4),
+            Monster,
+            BlocksSight,
+            Name("Orc".into()),
+            CombatStats::new(16, 4, 1),
+            Thinker::build()
+                .picker(FirstToScore { threshold: 0.5 })
+                .when(PlayerInAttackRange, MeeleeAttackPlayer)
+                .when(PlayerVisible, ChasePlayer),
+        ));
+    }
+
+    fn spawn_goblin(cmd: &mut Commands, position: Position, texture: Handle<Image>) {
+        cmd.spawn((
+            SpriteBundle {
+                visibility: bevy::render::view::Visibility::Hidden,
+                texture,
+                ..default()
+            },
+            position,
+            Viewshed::new(4),
+            Monster,
+            BlocksSight,
+            Name("Goblin".into()),
+            CombatStats::new(16, 4, 1),
+            Thinker::build()
+                .picker(FirstToScore { threshold: 0.5 })
+                .when(PlayerInAttackRange, MeeleeAttackPlayer)
+                .when(PlayerVisible, ChasePlayer),
+        ));
+    }
+
+    fn spawn_wall(cmd: &mut Commands, position: Position, texture: Handle<Image>) {
+        cmd.spawn((
+            SpriteBundle {
+                texture: texture,
+                visibility: Visibility::Hidden,
+                transform: Transform::from_translation(Vec3::new(
+                    position.x as f32 * SPRITE_SIZE,
+                    position.y as f32 * SPRITE_SIZE,
+                    FLOOR_Z,
+                )),
+                ..default()
+            },
+            BlocksSight,
+            Wall,
+            BlocksTile,
+            FogOfWar,
+            position,
+        ));
+    }
+
+    fn spawn_floor(cmd: &mut Commands, position: Position, texture: Handle<Image>) {
+        cmd.spawn((
+            SpriteBundle {
+                texture: texture.clone(),
+                visibility: Visibility::Hidden,
+                transform: Transform::from_translation(Vec3::new(
+                    position.x as f32 * SPRITE_SIZE,
+                    position.y as f32 * SPRITE_SIZE,
+                    FLOOR_Z,
+                )),
+                ..default()
+            },
+            position,
+            Floor,
+            FogOfWar,
+        ));
+    }
+
+    fn spawn_health_potions(cmd: &mut Commands, positions: Vec<Position>, texture: Handle<Image>) {}
+
+    fn populate_room(
+        cmd: &mut Commands,
+        room: &Rect,
+        max_monsters: u8,
+        max_items: u8,
+        asset_server: &Res<AssetServer>,
+    ) {
+        let monsters_count = rand::thread_rng().gen_range(0..=max_monsters);
+        let mut spawn_points = HashSet::new();
+
+        for _ in 0..monsters_count {
+            let mut added = false;
+
+            while !added {
+                let (x, y) = room.rand_position();
+                let spawn_point = Position::new(x as i32, y as i32, MONSTER_Z as i32);
+                if spawn_points.contains(&spawn_point) {
+                    continue;
+                }
+
+                spawn_points.insert(spawn_point);
+                added = true;
+            }
+        }
+
+        for spawn_point in spawn_points {
+            Spawner::spawn_monster(cmd, spawn_point, asset_server);
+        }
+    }
+
+    fn spawn_player(cmd: &mut Commands, position: Position, asset_server: &Res<AssetServer>) {
+        let texture = asset_server.load("hooded.png");
+
+        cmd.spawn((
+            SpriteBundle {
+                texture,
+                ..default()
+            },
+            position,
+            crate::components::Player,
+            Viewshed::new(4),
+            Name::new("Player"),
+            CombatStats::new(30, 5, 2),
+        ));
+    }
 }

@@ -27,7 +27,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_systems(
             Startup,
-            (spawn_player, compute_fov, update_visibility)
+            (compute_fov, update_visibility)
                 .chain()
                 .run_if(run_once())
                 .after(super::InitSetupSet)
@@ -45,27 +45,6 @@ impl Plugin for PlayerPlugin {
                 .chain(),
         );
     }
-}
-
-/// This system is responsible for spawning player
-fn spawn_player(
-    mut cmd: Commands,
-    spawn_point: Res<crate::resources::SpawnPoints>,
-    asset_server: Res<AssetServer>,
-) {
-    let player_sprite = asset_server.load("hooded.png");
-
-    cmd.spawn((
-        SpriteBundle {
-            texture: player_sprite,
-            ..default()
-        },
-        spawn_point.player,
-        crate::components::Player,
-        Viewshed::new(4),
-        Name::new("Player"),
-        components::bundles::CombatStats::new(30, 5, 2),
-    ));
 }
 
 /// This system handles user's input controlling player

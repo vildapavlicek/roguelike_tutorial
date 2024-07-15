@@ -1,3 +1,5 @@
+use rand::Rng;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
     pub x1: usize,
@@ -23,5 +25,12 @@ impl Rect {
 
     pub fn center(&self) -> (usize, usize) {
         ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
+    }
+
+    pub fn rand_position(&self) -> (i32, i32) {
+        let mut rand = rand::thread_rng();
+        let x = rand.gen_range(self.x1 + 1..self.x2);
+        let y = rand.gen_range(self.y1 + 1..self.y2);
+        (x as i32, y as i32)
     }
 }

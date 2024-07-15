@@ -1,23 +1,16 @@
 use crate::{
-    ai::{ChasePlayer, MeeleeAttackPlayer, PlayerInAttackRange, PlayerVisible},
     algorithms::fov::MyVisibility,
-    components::{self, BlocksSight, Monster, Name, Position, Viewshed, Wall},
-    resources::SpawnPoints,
+    components::{Monster, Position, Viewshed, Wall},
     states::GameState,
 };
-use bevy::{app::Startup, log::trace, prelude::*, utils::HashSet};
-use big_brain::{pickers::FirstToScore, thinker::Thinker, BigBrainSet};
-use rand::Rng;
+use bevy::{log::trace, prelude::*, utils::HashSet};
+use big_brain::BigBrainSet;
 
 pub(super) struct MonsterPlugin;
 
 impl Plugin for MonsterPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_systems(
-            Startup,
-            spawn_monsters.run_if(run_once()).after(super::InitSetupSet),
-        )
-        .add_systems(
             Update,
             (
                 compute_fov,
@@ -39,44 +32,6 @@ impl Plugin for MonsterPlugin {
             ),
         );
     }
-}
-
-/// This is our monster spawner function, has to be ran after initial setup as we need the [SpawnPoints] resource
-pub fn spawn_monsters(
-    mut cmd: Commands,
-    asset_server: Res<AssetServer>,
-    spawn_points: Res<SpawnPoints>,
-) {
-    trace!("spawning monsters");
-    let goblin = asset_server.load("goblin.png");
-    let orc = asset_server.load("orc.png");
-
-    spawn_points
-        .monsters
-        .iter()
-        .enumerate()
-        .for_each(|(i, spawn_point)| {
-            let (texture, name) = (rand::thread_rng().gen_range(0f32..1f32) > 0.75f32)
-                .then(|| (orc.clone(), "Orc"))
-                .unwrap_or((goblin.clone(), "Goblin"));
-            cmd.spawn((
-                SpriteBundle {
-                    visibility: bevy::render::view::Visibility::Hidden,
-                    texture,
-                    ..default()
-                },
-                *spawn_point,
-                Viewshed::new(4),
-                Monster,
-                BlocksSight,
-                Name(format!("{name} {i}")),
-                components::bundles::CombatStats::new(16, 4, 1),
-                Thinker::build()
-                    .picker(FirstToScore { threshold: 0.5 })
-                    .when(PlayerInAttackRange, MeeleeAttackPlayer)
-                    .when(PlayerVisible, ChasePlayer),
-            ));
-        })
 }
 
 fn compute_fov(
