@@ -1,5 +1,5 @@
 use crate::{
-    components::{combat::Health, requests::MovementRequest, Player, Position},
+    components::{combat::Health, requests::MovementRequest, MainCamera, Player, Position},
     states::GameState,
 };
 use bevy::{app::Startup, prelude::*};
@@ -39,7 +39,8 @@ impl Plugin for InitSetup {
 
 /// Spawns 2D camera, so we can see stuff
 fn spawn_camera(mut cmd: Commands) {
-    cmd.spawn(Camera2dBundle::default());
+    cmd.spawn((Camera2dBundle::default(), MainCamera));
+    cmd.insert_resource(crate::resources::CursorPosition::default());
 }
 
 /// Processes movement, takes each [MovementRequest] and updates position accordingly

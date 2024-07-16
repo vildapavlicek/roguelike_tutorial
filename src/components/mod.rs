@@ -15,6 +15,9 @@ use std::{
 };
 
 #[derive(Debug, Eq, PartialEq, Component, Clone)]
+pub struct MainCamera;
+
+#[derive(Debug, Eq, PartialEq, Component, Clone)]
 pub struct Name(pub String);
 
 impl Name {
@@ -81,6 +84,14 @@ impl Position {
     pub fn next_to(&self, rhs: &Position) -> bool {
         self.distance(*rhs) == 1
     }
+
+    pub fn from_coords(x: f32, y: f32, z: f32) -> Position {
+        Position {
+            x: (x / SPRITE_SIZE).round() as i32,
+            y: (y / SPRITE_SIZE).round() as i32,
+            z: z as i32,
+        }
+    }
 }
 
 #[test]
@@ -133,8 +144,8 @@ impl From<&Position> for Vec3 {
 impl From<&bevy::prelude::Transform> for Position {
     fn from(value: &bevy::prelude::Transform) -> Self {
         Position {
-            x: (value.translation.x / SPRITE_SIZE) as i32,
-            y: (value.translation.y / SPRITE_SIZE) as i32,
+            x: (value.translation.x / SPRITE_SIZE).round() as i32,
+            y: (value.translation.y / SPRITE_SIZE).round() as i32,
             z: value.translation.z as i32,
         }
     }

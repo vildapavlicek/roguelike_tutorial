@@ -1,9 +1,9 @@
-use crate::components::{combat::Health, ui::*, Name, Player};
+use crate::{
+    components::{combat::Health, ui::*, Name, Player},
+    consts::{DEFAULT_TEXT_COLOR, FONT_SIZE},
+};
 use bevy::prelude::*;
 use chrono::Local;
-
-const TEXT_SIZE: f32 = 14.;
-const DEFAULT_TEXT_COLOR: Color = Color::WHITE;
 
 #[derive(Debug)]
 pub struct LogUiPlugin;
@@ -26,7 +26,7 @@ impl Plugin for LogUiPlugin {
 pub enum LogMessage {
     /// When attack happens and we want to log it
     AttackMessage {
-        /// Time when the attack occured
+        /// Time when the attack ocured
         time: chrono::DateTime<Local>,
         /// Who does the attacking
         attacker: Name,
@@ -53,7 +53,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!("{}: ", time.format("%H:%M:%S%.3f")),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: DEFAULT_TEXT_COLOR,
                         ..default()
                     },
@@ -61,7 +61,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!("{attacker}"),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: Color::YELLOW,
                         ..default()
                     },
@@ -69,7 +69,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!(" attacked "),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: DEFAULT_TEXT_COLOR,
                         ..default()
                     },
@@ -77,7 +77,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!("{defender}"),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: Color::YELLOW,
                         ..default()
                     },
@@ -85,7 +85,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!(" for"),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: DEFAULT_TEXT_COLOR,
                         ..default()
                     },
@@ -93,7 +93,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!(" {damage}"),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: Color::CRIMSON,
                         ..default()
                     },
@@ -101,7 +101,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!(" damage."),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: DEFAULT_TEXT_COLOR,
                         ..default()
                     },
@@ -111,7 +111,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!("{}: ", time.format("%H:%M:%S%.3f")),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: DEFAULT_TEXT_COLOR,
                         ..default()
                     },
@@ -119,7 +119,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!("{name}"),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: Color::YELLOW,
                         ..default()
                     },
@@ -127,7 +127,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!(" has "),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: DEFAULT_TEXT_COLOR,
                         ..default()
                     },
@@ -135,7 +135,7 @@ impl From<&LogMessage> for TextBundle {
                 TextSection {
                     value: format!("died."),
                     style: TextStyle {
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         color: Color::RED,
                         ..default()
                     },
@@ -172,7 +172,7 @@ fn spawn_log_ui(mut cmd: bevy::prelude::Commands, player_hp: Query<&Health, With
                     "Welcome!",
                     TextStyle {
                         color: Color::CYAN,
-                        font_size: TEXT_SIZE,
+                        font_size: FONT_SIZE,
                         ..default()
                     },
                 ),
@@ -213,7 +213,7 @@ fn spawn_log_ui(mut cmd: bevy::prelude::Commands, player_hp: Query<&Health, With
                             format!("HP: {}/{}", player_hp.current, player_hp.max),
                             TextStyle {
                                 color: Color::WHITE,
-                                font_size: TEXT_SIZE,
+                                font_size: FONT_SIZE,
                                 ..default()
                             },
                         ),
@@ -257,7 +257,7 @@ fn update_hp_bar(
         TextSection::new(
             "HP: ",
             TextStyle {
-                font_size: TEXT_SIZE,
+                font_size: FONT_SIZE,
                 color: Color::WHITE,
                 ..default()
             },
@@ -265,7 +265,7 @@ fn update_hp_bar(
         TextSection::new(
             format!("{}", player_health.current),
             TextStyle {
-                font_size: TEXT_SIZE,
+                font_size: FONT_SIZE,
                 color: match player_health.current {
                     health if health <= get_percentage(player_health.max, 0.25) => Color::RED,
                     health if health <= get_percentage(player_health.max, 0.33) => Color::ORANGE,
@@ -281,7 +281,7 @@ fn update_hp_bar(
         TextSection::new(
             "/",
             TextStyle {
-                font_size: TEXT_SIZE,
+                font_size: FONT_SIZE,
                 color: Color::WHITE,
                 ..default()
             },
@@ -289,7 +289,7 @@ fn update_hp_bar(
         TextSection::new(
             format!("{}", player_health.max),
             TextStyle {
-                font_size: TEXT_SIZE,
+                font_size: FONT_SIZE,
                 color: Color::WHITE,
                 ..default()
             },

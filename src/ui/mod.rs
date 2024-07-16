@@ -1,4 +1,5 @@
 pub mod log;
+mod tooltip;
 
 use bevy::prelude::*;
 
@@ -8,6 +9,6 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(log::LogUiPlugin);
+        app.add_plugins((log::LogUiPlugin, tooltip::TooltipPlugin));
     }
 }
