@@ -1,12 +1,6 @@
 use crate::components::Position;
 use bevy::{math::Vec2, prelude::Resource};
 
-#[derive(Debug, Clone, Resource)]
-pub struct SpawnPoints {
-    pub player: Position,
-    pub monsters: Vec<Position>,
-}
-
 #[derive(Debug, Copy, Clone, Resource)]
 pub struct CursorPosition {
     pub world_position: Position,

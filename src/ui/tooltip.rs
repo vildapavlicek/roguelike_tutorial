@@ -41,7 +41,6 @@ fn update_cursor_position(
             Position::from_coords(world_position.x, world_position.y, 99f32),
             window.cursor_position().unwrap_or_default(),
         );
-        // debug!(?cursor_position, "updated cursor position");
     }
 }
 

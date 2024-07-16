@@ -1,5 +1,6 @@
 pub mod bundles;
 pub mod combat;
+pub mod item;
 pub mod requests;
 pub mod ui;
 

@@ -63,6 +63,5 @@ fn euclidean_distance(p1_x: i32, p1_y: i32, p2_x: i32, p2_y: i32) -> i32 {
 }
 
 fn end_turn(mut state: ResMut<NextState<GameState>>) {
-    trace!("ending monster turn");
     state.set(GameState::PlayerTurn)
 }

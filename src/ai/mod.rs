@@ -103,7 +103,6 @@ pub fn chase_player(
             |p| p.distance(*monster_pos) / 3,
             |p| finish_positions.contains(p),
         ) else {
-            debug!("no path found");
             continue;
         };
 
@@ -155,10 +154,6 @@ pub fn meelee_attack_player_action(
     mut actors: Query<(&Actor, &mut ActionState), With<MeeleeAttackPlayer>>,
     p_entity: Query<Entity, With<Player>>,
 ) {
-    debug!(
-        actors = actors.iter().count(),
-        "running meelee attack AI system"
-    );
     let p_entity = p_entity.single();
 
     for (Actor(entity), mut action_state) in actors.iter_mut() {

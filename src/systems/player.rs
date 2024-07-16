@@ -36,11 +36,12 @@ impl Plugin for PlayerPlugin {
         .add_systems(
             Update,
             (
-                player_input.run_if(in_state(GameState::PlayerTurn)),
+                (player_input).run_if(in_state(GameState::PlayerTurn)),
                 super::process_movement,
                 super::sync_position,
                 sync_camera_with_player,
                 (compute_fov, update_visibility, apply_fow).chain(),
+                // print_player_pos,
             )
                 .chain(),
         );
@@ -262,4 +263,9 @@ fn sync_camera_with_player(
     mut camera_pos: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
 ) {
     camera_pos.single_mut().translation = player_pos.single().translation
+}
+
+fn print_player_pos(query: Query<&Position, With<Player>>) {
+    let pos = query.single();
+    debug!(?pos, "player position at")
 }
